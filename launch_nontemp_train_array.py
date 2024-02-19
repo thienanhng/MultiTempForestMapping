@@ -98,7 +98,6 @@ for exp_name_base, common_input_bands, grayscale_prob in \
                                 num_workers_train=num_workers_train,
                                 num_workers_val=num_workers_val,
                                 debug=debug,
-                                no_user_input=no_user_input,
-                                wandb_name=exp_name)
+                                no_user_input=no_user_input)
 
             train(args)

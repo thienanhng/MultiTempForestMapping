@@ -6,8 +6,6 @@ import utils
 from utils import ExpUtils
 import numpy as np
 import random
-import wandb
-from utils.wandb_utils import precomputed_cm_to_wandb
 
 def infer(csv_fn,
           model_fn,
@@ -25,10 +23,7 @@ def infer(csv_fn,
           padding=64,
           normalize_temp_inputs='per_year',
           random_seed=0,
-          num_workers=4,
-          wandb_tracking=True,
-          wandb_name=None
-          ):
+          num_workers=4):
     
     args_dict = {'csv_fn': csv_fn,
                  'model_fn': model_fn,
@@ -42,16 +37,6 @@ def infer(csv_fn,
                  'normalize_temp_inputs': normalize_temp_inputs,
                  'random_seed': random_seed,
                  'num_workers': num_workers}
-    
-    wandb_tracking = wandb_tracking
-    wandb_log_pred = True
-    if wandb_tracking:  
-        if temp:
-            wandb.init(project="MFP_inference", 
-                       config=args_dict,
-                       name=wandb_name)
-    else:
-        wandb.init(mode="disabled")
 
     ############ Argument checking ###############
 
@@ -271,9 +256,7 @@ def infer(csv_fn,
                                         num_workers=num_workers, 
                                         device=device, 
                                         undersample=1, 
-                                        random_seed=random_seed, 
-                                        wandb_tracking=wandb_tracking,
-                                        wandb_log_pred=wandb_log_pred,
+                                        random_seed=random_seed,
                                         fill_batch=True)
     else:
         inference = utils.Inference(model, 
@@ -289,8 +272,7 @@ def infer(csv_fn,
                                     num_workers=num_workers, 
                                     device=device, 
                                     undersample=1, 
-                                    random_seed=random_seed, 
-                                    wandb_tracking=wandb_tracking)
+                                    random_seed=random_seed)
 
     result = inference.infer()
 
@@ -299,47 +281,6 @@ def infer(csv_fn,
     if evaluate:
         if result is not None:
             cm, report, _ = result
-            # log to wandb
-            if wandb_tracking:                
-                report_tlm = report['target_tlm']
-                for task in report_tlm:
-                    report_tlm[task] = report_tlm[task]['F']
-                wandb.log({'tlm': report_tlm})
-                
-                key = 'target_multitemp'
-                if key in report:
-                    wandb_multitemp_dic = {}
-                    for task in report[key]: 
-                        wandb_multitemp_dic[task] = {'gray': report[key][task]['overall_gray']['F'],
-                                                        'rgb': report[key][task]['overall_rgb']['F'],
-                                                        'all': report[key][task]['overall']['F']}
-                    wandb.log({'multitemp': wandb_multitemp_dic})
-                    
-                    wandb.log({
-                        'cm_gray': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall_gray'], 
-                                                           class_names = exp_utils.class_names, 
-                                                           title='gray'),
-                        'cm_gray_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall_gray'], 
-                                                             class_names = exp_utils.class_names, 
-                                                             title='gray_contours'),
-                        'cm_rgb': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall_rgb'], 
-                                                          class_names = exp_utils.class_names, 
-                                                          title='rgb'),
-                        'cm_rgb_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall_rgb'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='rgb_contours'),
-                        'cm': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall'], 
-                                                          class_names = exp_utils.class_names, 
-                                                          title='all'),
-                        'cm_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='all_contours'),
-                        'cm_tlm': precomputed_cm_to_wandb(cm['target_tlm']['seg'], 
-                                                          class_names = exp_utils.class_names, 
-                                                          title='tlm'),
-                        'cm_tlm_c': precomputed_cm_to_wandb(cm['target_tlm']['seg_contours'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='tlm_contours'),})
                 
             # Save metrics to file
             d = {
@@ -351,8 +292,6 @@ def infer(csv_fn,
                 torch.save(d, f)
                 
     inference.end()            
-    if wandb_tracking:
-        wandb.finish()
 
 #################################################################################################################
 
@@ -405,32 +344,25 @@ if __name__ == "__main__":
     epoch = 39 
     end_year = 2020
     padding = 64  #0 for evaluation, 64 for vizualisation
-    
-    wandb_tracking = False
-    
+        
     for exp_name in exp_name_list:
-        try:
-            infer(
-                csv_fn='data/csv/SItemp100cm_1946_to_{}_ALTI100cm_TLM6c_multitemp_{}.csv'.format(end_year,
-                                                                                            data_set),
-            model_fn = 'output/{0}/training/{0}_model_epoch{1}.pt'.format(exp_name, epoch),
-            output_dir='output/{}/inference/epoch_{}/{}_debug'.format(exp_name, epoch, data_set),
-            main_input_source = 'SItemp',
-            aux_input_source = 'ALTI',
-            overwrite=True,
-            evaluate=True, 
-            save_hard=True,
-            save_soft=True,
-            save_temp_diff=False,
-            temp=True,
-            batch_size=512, #32, # does not matter if patch_size == tile_size
-            patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation
-            padding=padding,
-            normalize_temp_inputs='per_year',
-            random_seed=0,
-            num_workers=4, 
-            wandb_tracking=wandb_tracking,
-            wandb_name='{}_epoch{}'.format(exp_name, epoch)
-            )
-        except KeyboardInterrupt:
-            wandb.finish()
+        infer(
+            csv_fn='data/csv/SItemp100cm_1946_to_{}_ALTI100cm_TLM6c_multitemp_{}.csv'.format(end_year,
+                                                                                        data_set),
+        model_fn = 'output/{0}/training/{0}_model_epoch{1}.pt'.format(exp_name, epoch),
+        output_dir='output/{}/inference/epoch_{}/{}_debug'.format(exp_name, epoch, data_set),
+        main_input_source = 'SItemp',
+        aux_input_source = 'ALTI',
+        overwrite=True,
+        evaluate=True, 
+        save_hard=True,
+        save_soft=True,
+        save_temp_diff=False,
+        temp=True,
+        batch_size=512, #32, # does not matter if patch_size == tile_size
+        patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation
+        padding=padding,
+        normalize_temp_inputs='per_year',
+        random_seed=0,
+        num_workers=4
+        )

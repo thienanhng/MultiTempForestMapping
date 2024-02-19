@@ -15,7 +15,6 @@ import random
 from tqdm import tqdm
 from collections import defaultdict
 from functools import partial
-import wandb
 from rasterio.enums import Resampling
 
 
@@ -32,7 +31,7 @@ class Inference():
                         evaluate=True, save_hard=True, save_soft=True, 
                         batch_size=32, patch_size=128, padding=64,
                         num_workers=0, device=0, undersample=1,
-                        random_seed=None, wandb_tracking=False):
+                        random_seed=None):
 
         """
         Args:
@@ -66,7 +65,6 @@ class Inference():
         self.exp_utils = exp_utils
         self.patch_size = patch_size
         self.input_vrt_fn = None # used to indicate that virtual raster mosaic(s) has not been created yet
-        self.wandb_tracking = wandb_tracking
         
         g = torch.Generator()
         if random_seed is not None:
@@ -424,14 +422,6 @@ class Inference():
             generator=self.g,
         )
         
-        if self.wandb_tracking:
-            class_labels = {k: v for k, v in enumerate(self.exp_utils.class_names)}
-            class_labels[self.exp_utils.i_out_nodata_val] = 'nodata'
-            win_size = 256
-            win_off = self.padding
-            win_stop = win_off +  win_size
-            # tile_track_list = ['2628_1122', '2661_1135', '2600_1129']
-            tile_track_list = ['2628_1122']
         # iterate over dataset (tile by tile) 
         progress_bar = tqdm(zip(df.iterrows(), dataloader), total=len(df))
         for i, ((tile_idx, fns), (batch_data, target_tiles, coords, dims, margins, nodata_mask)) in enumerate(progress_bar):
@@ -463,35 +453,6 @@ class Inference():
             output_hard = self._get_decisions(actv=output, 
                                                 target_data=target_tiles, 
                                                 nodata_mask=nodata_mask)
-            
-            # save in wandb table for vizualisation
-            if self.wandb_tracking:
-                if tile_num in tile_track_list:
-                    with rasterio.open(input_im_fn, 'r') as f_input:
-                        read_win_size = win_size / f_input.res[0]
-                        win = Window(int(win_off / f_input.res[0]), 
-                                     int(win_off / f_input.res[0]), 
-                                     read_win_size, 
-                                     read_win_size)
-                        wandb_input_img = f_input.read( out_shape=( f_input.count,
-                                                                        win_size,
-                                                                        win_size),
-                                                        resampling=Resampling.bilinear,
-                                                        window=win)
-                    target_tile = target_tiles['target_tlm'][0]
-                    mask_img = wandb.Image(wandb_input_img.astype(np.uint8).transpose(1, 2, 0), 
-                                           masks={"predictions": {
-                                                        "mask_data": output_hard[win_off:win_stop, win_off:win_stop],
-                                                        "class_labels": class_labels
-                                                                },
-                                                    "ground_truth": {
-                                                        "mask_data": target_tile[win_off:win_stop, win_off:win_stop],
-                                                        "class_labels": class_labels
-                                                                  }
-                    })
-                    wandb_key = "pred_{}".format(tile_num)
-                    wandb.log({wandb_key: mask_img})   
-                       
                  
             # write outputs 
             if self.save_hard or self.save_soft:   
@@ -540,8 +501,6 @@ class TempInference(Inference):
                  device=0, 
                  undersample=1,
                  random_seed=None, 
-                 wandb_tracking=False,
-                 wandb_log_pred=False,
                  fill_batch=True):
         super().__init__(model, 
                          file_list, 
@@ -556,11 +515,9 @@ class TempInference(Inference):
                          num_workers=num_workers, 
                          device=device, 
                          undersample=undersample, 
-                         random_seed=random_seed, 
-                         wandb_tracking=wandb_tracking)
+                         random_seed=random_seed)
         
         self.save_temp_diff = save_temp_diff
-        self.wandb_log_pred = wandb_log_pred
         self.fill_batch = fill_batch
         
     def _check_col_names(self, df, source_names):
@@ -647,7 +604,7 @@ class TempInference(Inference):
                 self.input_vrt_nodata_val[input_name] = new_nodata_val
                 self.input_vrt_fns[input_name] = vrt_fn
             
-        if self.evaluate or self.wandb_tracking:
+        if self.evaluate:
             print('Building target virtual mosaics for inference...')  
             self.target_fns = {}           
             self.target_vrt_fns = {} 
@@ -947,23 +904,9 @@ class TempInference(Inference):
             pin_memory=False,
             collate_fn=lambda x : x
         )
-        
-        if self.wandb_tracking:
-            if self.wandb_log_pred:
-                class_labels = {k: v for k, v in enumerate(self.exp_utils.class_names)}
-                class_labels[self.exp_utils.i_out_nodata_val] = 'nodata'
-                win_size = 256
-                win_off = self.padding
-                win_stop = win_off +  win_size
-                stride = 4
-                # tile_track_list = ['2628_1122', '2661_1135', '2600_1129']
-                tile_track_list = ['2628_1122', '2661_1135']
-            
+
         # iterate over dataset (tile by tile) 
         progress_bar = tqdm(zip(df.iterrows(), dataloader), total=len(df))
-        wandb_table_data = [] 
-        # wandb_table_data_soft = []
-        # wandb_table_data_internals = []
         for (tile_idx, fns), \
             (batch_data, target_tiles, coords, time_footprints, years, dims, margins, nodata_mask, year_dic) \
             in progress_bar:
@@ -982,7 +925,6 @@ class TempInference(Inference):
             progress_bar.set_postfix_str('Tile(s): {}'.format(tile_num))
 
             # compute forward pass and aggregate outputs
-            # DEBUG
             output, losses, nopred_mask  = self._infer_sample(batch_data, 
                                                 coords, 
                                                 dims, 
@@ -1042,49 +984,6 @@ class TempInference(Inference):
                                                     nodata_mask=nodata_mask,
                                                     eval_channel=eval_channel,
                                                     thresh=thresh)    
-                                                      
-            if self.wandb_tracking:  
-                if self.wandb_log_pred:
-                    if tile_num in tile_track_list:
-                        masked_image_list = [None] * len(all_years)
-                        for i, y in enumerate(all_years):
-                            with rasterio.open(fns.iloc[i], 'r') as f_input:
-                                read_win_size = win_size / f_input.res[0]
-                                win = Window(int(win_off / f_input.res[0]), int(win_off / f_input.res[0]), 
-                                             read_win_size, 
-                                             read_win_size)
-                                wandb_input_img = f_input.read( out_shape=( f_input.count,
-                                                                            win_size//stride,
-                                                                            win_size//stride),
-                                                                resampling=Resampling.nearest,
-                                                                window=win
-                                                                ).astype(np.uint8).transpose(1, 2, 0)
-                            mask = {'predictions_{}'.format(y): { 
-                                        "mask_data": output_hard[i][win_off:win_stop:stride, win_off:win_stop:stride],
-                                        "class_labels": class_labels}
-                                    }
-                            if 'target_tlm' in target_tiles:
-                                target_tile = target_tiles['target_tlm'][0]
-                            else:
-                                target_tile = None
-                            if y == all_years[-1] and target_tile is not None:
-                                mask['ground_truth'] = {    
-                                                        "mask_data": target_tile[win_off:win_stop:stride, 
-                                                                                 win_off:win_stop:stride],
-                                                        "class_labels": class_labels
-                                                        }
-                            masked_image_list[i] = wandb.Image(wandb_input_img, 
-                                                            masks=mask, 
-                                                            caption=y)
-                        wandb_table_data.append([tile_num ] + masked_image_list)
-                        num_cols = max([len(row) for row in wandb_table_data])
-                        columns = ['tile_num'] + ['pred_{}'.format(k) for k in range(num_cols - 1)]
-                            
-                        wandb_table_data = [row + [None]*(num_cols-len(row)) for row in wandb_table_data]
-                        wandb_table_data = wandb.Table(columns=columns, data=wandb_table_data, allow_mixed_types=True)
-                        wandb.log({"predictions": wandb_table_data})
-                        print('Outputs logged to wandb')
-                        
 
             # write outputs 
             if self.save_hard or self.save_soft: 

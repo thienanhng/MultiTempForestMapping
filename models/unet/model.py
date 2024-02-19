@@ -108,7 +108,7 @@ class NonRecurrentUnet(Module):
         upsample: bool=False,
         aux_in_channels: int=0,
         aux_in_position: int=1,
-        in_out_scale: List[int]=4,
+        in_out_scale: List[int]=1,
         bn_momentum=0.1,
         **kwargs):
         
@@ -175,7 +175,7 @@ class RecurrentUnet(Module):
         upsample: bool=False,
         aux_in_channels: int=0,
         aux_in_position: int=1,
-        in_out_scale: List[int]=4,
+        in_out_scale: List[int]=1,
         bn_momentum=0.1,
         reverse=False,
         rec_init='zero', #'copy_input' or 'zero'
@@ -293,7 +293,7 @@ class GRUUnet(Module):
             upsample: bool=False,
             aux_in_channels: int=0,
             aux_in_position: int=1,
-            in_out_scale: List[int]=4,
+            in_out_scale: List[int]=1,
             bn_momentum=0.1,
             gru_irreg=False,
             gru_input: str='logits',

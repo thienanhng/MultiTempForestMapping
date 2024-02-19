@@ -2,7 +2,6 @@ import os
 from train import train
 
 temp = True
-wandb_tracking = True
 
 # run parameters
 num_epochs = 40
@@ -13,7 +12,7 @@ train_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_train_with_counts.csv'.format(
 val_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_multitemp_mylabels_val.csv'.format(main_input_source, 
                                                                                     aux_input_source)
 new_history = True
-starting_model_name = 'Unet_SI2020_100cm_50lumagrayaugment_large_lrsched'
+starting_model_name = 'Unet_SI2020_100cm_grayaugment_rs0'
 starting_model_fn =  os.path.join('output', 
                                     starting_model_name, 
                                     'training', 
@@ -190,7 +189,5 @@ for random_seed in range(5):
                             num_workers_train=num_workers_train,
                             num_workers_val=num_workers_val,
                             debug=debug,
-                            no_user_input=no_user_input,
-                            wandb_name=exp_name,
-                            wandb_tracking=wandb_tracking)
+                            no_user_input=no_user_input)
 

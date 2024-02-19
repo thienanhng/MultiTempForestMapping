@@ -4,7 +4,6 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 from utils.exp_utils import I_NODATA_VAL
-import wandb
 
 def fit(model, 
         device, 
@@ -49,7 +48,6 @@ def fit(model,
         # backward pass
         total_loss.backward()
         optimizer.step()
-        wandb.log({'seg_loss': seg_loss})
 
         # store current losses
         total_losses.append(total_loss.item())
@@ -66,8 +64,6 @@ def fit(model,
     avg_total_loss = np.mean(total_losses, axis = 0)
     avg_seg_loss = np.mean(seg_losses, axis = 0)
     
-    wandb.log({'seg loss (per epoch)': avg_seg_loss})
-
     return avg_total_loss, avg_seg_loss
 
 def fit_temp(model, 
@@ -162,21 +158,6 @@ def fit_temp(model,
         if (batch_idx + 1) % update_period == 0:
             optimizer.step() 
             optimizer.zero_grad()
-            
-            
-            wandb.log({'seg_loss': seg_loss})
-            wandb.log({'total_loss': total_loss})
-            
-            if temp_criterion is not None:
-                wandb.log({'temp_loss': temp_loss * lambda_temp})
-                wandb.log({'r_bootstrap': r_bootstrap})
-                
-            if temp_align_criterion is not None:
-                wandb.log({'temp_align_loss': temp_align_loss * lambda_temp_align})
-            
-            # log batchnorm parameters
-            wandb.log({'bn_mean': model.unet.decoder.blocks[-1].conv2[2].running_mean[0]})
-            wandb.log({'bn_var': model.unet.decoder.blocks[-1].conv2[2].running_var[0]})
                     
     if (batch_idx + 1) % update_period != 0:
         # parameter update for remaining batches
@@ -185,18 +166,15 @@ def fit_temp(model,
     # average losses along the batch
     avg_total_loss = np.mean(total_losses)
     avg_seg_loss = np.mean(seg_losses) 
-    wandb.log({'train_seg_loss': avg_seg_loss})
     
     if temp_criterion is None:
         avg_temp_loss = NaN  
     else:
         avg_temp_loss = np.mean(temp_losses)
-        wandb.log({'train_temp_loss': avg_temp_loss}) 
     if temp_align_criterion is None:
         avg_temp_align_loss = NaN  
     else:
         avg_temp_align_loss = np.mean(temp_align_losses)
-        wandb.log({'train_temp_align_loss': avg_temp_align_loss})
     
     return avg_total_loss, avg_seg_loss, avg_temp_loss, avg_temp_align_loss
 

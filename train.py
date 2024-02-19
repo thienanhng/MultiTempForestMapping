@@ -12,10 +12,7 @@ from utils.train_utils import MyBCELoss, MyBCEWithLogitsLoss, MyTemporalMSELoss,
                                 MyTemporalCELoss, MyGradNormTemporalLoss
 from copy import deepcopy
 from numpy.core.numeric import NaN
-import math
 import random
-import wandb
-from utils.wandb_utils import precomputed_cm_to_wandb
 
 def train(output_dir, 
             main_input_source,
@@ -70,22 +67,9 @@ def train(output_dir,
             num_workers_train=8,
             num_workers_val=4,
             debug=False,
-            no_user_input=True,
-            wandb_tracking=False,
-            wandb_name=None):
+            no_user_input=True):
     
     args_dict = locals().copy()
-    if wandb_tracking:  
-        if temp:
-            wandb.init(project="MFP", 
-                       config=args_dict, #vars(args),
-                       name=wandb_name)
-        else:
-            wandb.init(project="MFP_Pretraining", 
-                       config=args_dict, #vars(args),
-                       name=wandb_name)
-    else:
-        wandb.init(mode="disabled")
         
     torch.autograd.set_detect_anomaly(debug)
 
@@ -639,9 +623,7 @@ def train(output_dir,
                     num_workers=num_workers_val, 
                     device=device,
                     undersample=undersample_validation, 
-                    random_seed=random_seed, 
-                    wandb_tracking=wandb_tracking, 
-                    ) 
+                    random_seed=random_seed) 
         else:
             inference = utils.Inference(model, 
                     val_csv_fn, 
@@ -655,26 +637,14 @@ def train(output_dir,
                     padding=infer_padding, 
                     num_workers=num_workers_val, 
                     device=device,
-                    undersample=undersample_validation, 
-                    wandb_tracking=wandb_tracking)
+                    undersample=undersample_validation)
 
     
     ############ Training #####################################################
     print('Starting training') 
     n_batches_per_epoch = int(len(dataset.fns) * num_patches_per_tile / batch_size)
 
-    for i, epoch in enumerate(range(starting_epoch, starting_epoch + num_epochs)):
-        
-        wandb.log({'epoch': epoch})
-        for pg in optimizer.param_groups:
-            try:
-                if pg['name'] == 'fe':
-                    wandb.log({'lr_fe': pg['lr']})
-                elif pg['name'] == 'temp':
-                    wandb.log({'lr_temp': pg['lr']})
-            except KeyError:
-                wandb.log({'lr': pg['lr']})
-                    
+    for i, epoch in enumerate(range(starting_epoch, starting_epoch + num_epochs)):       
             
         print('\nTraining epoch: {}'.format(epoch))
         if control_training_set or undersample_training > 1:
@@ -757,62 +727,14 @@ def train(output_dir,
         
         # store validation losses/metrics
         if validate[i]: 
-            save_dict['val_reports'].append(report) #['target_tlm'])
-            save_dict['val_cms'].append(deepcopy(cm)) #['target_tlm'])) # deepcopy is necessary
+            save_dict['val_reports'].append(report)
+            save_dict['val_cms'].append(deepcopy(cm)) # deepcopy is necessary
             save_dict['val_epochs'].append(epoch)
             save_dict['val_losses'].append(val_seg_loss)
-            if wandb_tracking:
-                wandb.log({'val_epoch': epoch,
-                            'val_seg_loss': val_seg_loss,
-                            'cm_tlm': precomputed_cm_to_wandb(cm['target_tlm']['seg'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='tlm'),
-                            'cm_tlm_c': precomputed_cm_to_wandb(cm['target_tlm']['seg_contours'], 
-                                                                class_names = exp_utils.class_names, 
-                                                                title='tlm_contours')})
-                if 'target_multitemp' in cm:
-                    wandb.log({
-                            'cm_gray': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall_gray'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='gray'),
-                            'cm_gray_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall_gray'], 
-                                                                class_names = exp_utils.class_names, 
-                                                                title='gray_contours'),
-                            'cm_rgb': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall_rgb'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='rgb'),
-                            'cm_rgb_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall_rgb'], 
-                                                                class_names = exp_utils.class_names, 
-                                                                title='rgb_contours'),
-                            'cm': precomputed_cm_to_wandb(cm['target_multitemp']['seg']['overall'], 
-                                                            class_names = exp_utils.class_names, 
-                                                            title='all'),
-                            'cm_c': precomputed_cm_to_wandb(cm['target_multitemp']['seg_contours']['overall'], 
-                                                                class_names = exp_utils.class_names, 
-                                                                title='all_contours'),
-                            })
-
-                # log only metrics for class F
-                report_tlm = report['target_tlm']
-                for task in report_tlm:
-                    report_tlm[task] = report_tlm[task]['F']
-                wandb.log({'val_tlm': report_tlm})
-                key = 'target_multitemp'
-                if key in report:
-                    wandb_multitemp_dic = {}
-                    for task in report[key]: 
-                        wandb_multitemp_dic[task] = {'gray': report[key][task]['overall_gray']['F'],
-                                                        'rgb': report[key][task]['overall_rgb']['F'],
-                                                        'all': report[key][task]['overall']['F']}
-                    wandb.log({'val_multitemp': wandb_multitemp_dic}) 
             if temp_loss is not None:
                 save_dict['val_temp_losses'].append(val_temp_loss_per_year)
-                if wandb_tracking:
-                    wandb.log({'val_temp_loss': val_temp_loss * lambda_temp})
             if temp_align_loss is not None:
                 save_dict['val_temp_align_losses'].append(val_temp_align_loss_per_year)
-                if wandb_tracking:
-                    wandb.log({'val_temp_align_loss': val_temp_align_loss * lambda_temp_align})
                 
         with open(log_fn, 'wb') as f:
             torch.save(save_dict, f)
@@ -846,221 +768,211 @@ def train(output_dir,
         torch.save(last_checkpoint, model_fn.replace('model.pt', 'model_epoch{}.pt'.format(epoch)))
     
     if not skip_validation:
-        inference.end()
-    wandb.finish()    
+        inference.end()  
 
 ########################################################################################################################
 
 if __name__ == "__main__":
     
-    try:
-        debug = True #
-        wandb_tracking = False
+    debug = True #
+    # run parameters
+    random_seed = 0
+    if debug:
+        exp_name = 'debug'
+    else:
+        exp_name = 'new_experiment' 
+    output_dir = os.path.join('output', exp_name)
+    temp = True
+    num_epochs = 1 #20 #30
+    validation_period = 1
+    
+    # data loading
+    undersample_validation = 1 
+    negative_sampling_schedule = [num_epochs]
+    
+    # training parameters
+    patch_size = 128 # in meters
+    
+    # data pre-processing
+    common_input_bands = None
+    
+    # resource allocation
+    num_workers_train = 0 #8 
+    num_workers_val = 0 #4
+    
+    # misc
+    no_user_input = True
+    
+    # parameters for multi-temporal training
+    if temp:
         # run parameters
-        random_seed = 0
-        if debug:
-            exp_name = 'debug'
-        else:
-            exp_name = 'new_experiment' #'Unet_SI2020_100cm_50lumagrayaugment_large_lrsched'#
-        output_dir = os.path.join('output', exp_name)
-        temp = True
-        num_epochs = 1 #20 #30
-        validation_period = 1
+        main_input_source = 'SItemp' 
+        aux_input_source = 'ALTI' 
+        train_csv_fn = 'data/csv/{}100cm_1946_to_2020_{}100cm_TLM6c_train_with_counts.csv'.format(main_input_source, 
+                                                                                        aux_input_source)
+        val_csv_fn = 'data/csv/{}100cm_1946_to_2020_{}100cm_TLM6c_multitemp_mylabels_val.csv'.format(main_input_source, 
+                                                                                            aux_input_source)
+        
+        new_history = True
+        starting_model_name = 'Unet_SI2020_100cm_grayaugment_rs0'
+        starting_model_fn =  os.path.join('output', 
+                                            starting_model_name, 
+                                            'training', 
+                                            '{}_model_epoch19.pt'.format(starting_model_name))
+        resume_training = True # must be True to train GRUUnet
+        freeze_matching_params = 0 #num_epochs
+        model_arch = 'GRUUnet' #'NonRecurrentUnet' #
         
         # data loading
-        undersample_validation = 1 
-        negative_sampling_schedule = [num_epochs]
+        undersample_training = 1 # value > 1 reduces data loading cost
+        num_patches_per_tile = 4
+        n_negative_samples = [20//undersample_training]  
+
+        # training parameters  
+        lr_fe = 1e-5 
+        lr_temp = 1e-3
+        batch_size = 8 
+        update_period = 256 // batch_size # 64 // batch_size # simulate a larger batch size
+        bn_momentum = 1e-5 #0.001
+        
+        # data augmentation
+        augment_vals = True 
+        gauss_blur_sigma = 0.25
+        color_jitter = 0.25
+        grayscale_prob = 0
+        std_gray_noise = 0
+        
+        # loss
+        lambda_temp = 1. #1 # 20
+        temp_loss = 'CE' #'MSE' # 'none' #'graddot'
+        lambda_temp_align = 1.
+        temp_align_loss = 'gradnorm' #'graddot'
+        scale_by_norm=True,
+        asym_align = False
+        weight_temp_loss = True
+        bootstrap_beta = 0.
+        bootstrap_threshold = 1
+        
+        # temporal model
+        reverse = True
+        gru_irreg = True
+        gru_kernel_size = 7
+        gru_input = 'df'
+        gru_norm_dt = False
+        
+        train(output_dir=output_dir,
+                main_input_source=main_input_source,
+                aux_input_source=aux_input_source,
+                train_csv_fn=train_csv_fn,
+                val_csv_fn=val_csv_fn,
+                temp=temp,
+                num_epochs=num_epochs,
+                random_seed=random_seed,
+                new_history=new_history,
+                starting_model_fn=starting_model_fn,
+                resume_training=resume_training,
+                freeze_matching_params=freeze_matching_params,
+                model_arch=model_arch,
+                undersample_training=undersample_training,
+                undersample_validation=undersample_validation,
+                num_patches_per_tile=num_patches_per_tile,
+                n_negative_samples=n_negative_samples,
+                batch_size=batch_size,
+                patch_size=patch_size,
+                lr_fe=lr_fe,
+                lr_temp=lr_temp,
+                update_period=update_period,
+                bn_momentum=bn_momentum,
+                augment_vals=augment_vals,
+                gauss_blur_sigma=gauss_blur_sigma,
+                color_jitter=color_jitter,
+                grayscale_prob=grayscale_prob,
+                std_gray_noise=std_gray_noise,
+                lambda_temp=lambda_temp,
+                temp_loss=temp_loss,
+                lambda_temp_align = lambda_temp_align,
+                temp_align_loss = temp_align_loss,
+                scale_by_norm=scale_by_norm,
+                asym_align=asym_align,
+                weight_temp_loss=weight_temp_loss,
+                bootstrap_beta=bootstrap_beta,
+                bootstrap_threshold=bootstrap_threshold,
+                reverse=reverse,
+                gru_irreg=gru_irreg,
+                gru_kernel_size=gru_kernel_size,
+                gru_input=gru_input,
+                gru_norm_dt = gru_norm_dt,
+                common_input_bands=common_input_bands,
+                num_workers_train=num_workers_train,
+                num_workers_val=num_workers_val,
+                debug=debug,
+                no_user_input=no_user_input)
+        
+    # parameters for mono-temporal training    
+    else:
+        # run parameters
+        main_input_source = 'SI2020'
+        aux_input_source = 'ALTI'  
+        train_csv_fn = 'data/csv/{}_{}_TLM6c_train_with_counts.csv'.format(main_input_source, 
+                                                                            aux_input_source)
+        val_csv_fn = 'data/csv/{}_{}_TLM6c_val.csv'.format(main_input_source, 
+                                                            aux_input_source)
+        resume_training = False
+        if resume_training:
+            starting_model_fn = 'output/Unet_SI2020_100cm_grayaugment_rs0/training/Unet_SI2020_100cm_grayaugment_rs0_model_epoch19.pt'
+            new_history = False
+        else:
+            starting_model_fn = None
+            new_history = True
+        model_arch = 'Unet'
+        
+        # data loading
+        undersample_training = 1
+        num_patches_per_tile = 2 #small value to keep a diverse batch #(1000/128)^2 = 61 
+        n_negative_samples = [20//undersample_training] 
         
         # training parameters
-        patch_size = 128 # in meters
+        lr_fe = 1e-4
+        batch_size = 32 
+        update_period = 1
+        bn_momentum = 0.1
         
-        # data pre-processing
-        common_input_bands = None
+        # data augmentation
+        augment_vals = True
+        gauss_blur_sigma = 0.5
+        color_jitter = 0.5
+        grayscale_prob = 0.5
+        std_gray_noise = 0.1
         
-        # resource allocation
-        num_workers_train = 0 #8 
-        num_workers_val = 0 #4
-        
-        # misc
-        no_user_input = True
-        
-        # parameters for multi-temporal training
-        if temp:
-            # run parameters
-            main_input_source = 'SItemp' 
-            aux_input_source = 'ALTI' 
-            train_csv_fn = 'data/csv/{}100cm_1946_to_2020_{}100cm_TLM6c_train_with_counts.csv'.format(main_input_source, 
-                                                                                            aux_input_source)
-            val_csv_fn = 'data/csv/{}100cm_1946_to_2020_{}100cm_TLM6c_multitemp_mylabels_val.csv'.format(main_input_source, 
-                                                                                                aux_input_source)
-            
-            new_history = True
-            starting_model_name = 'Unet_SI2020_100cm_50lumagrayaugment_large_lrsched'
-            starting_model_fn =  os.path.join('output', 
-                                                starting_model_name, 
-                                                'training', 
-                                                '{}_model.pt'.format(starting_model_name))
-            resume_training = True # must be True to train GRUUnet
-            freeze_matching_params = 0 #num_epochs
-            model_arch = 'GRUUnet' #'NonRecurrentUnet' #
-            
-            # data loading
-            undersample_training = 1 # value > 1 reduces data loading cost
-            num_patches_per_tile = 4
-            n_negative_samples = [20//undersample_training]  
-
-            # training parameters  
-            lr_fe = 1e-5 
-            lr_temp = 1e-3
-            batch_size = 8 
-            update_period = 256 // batch_size # 64 // batch_size # simulate a larger batch size
-            bn_momentum = 1e-5 #0.001
-            
-            # data augmentation
-            augment_vals = True 
-            gauss_blur_sigma = 0.25
-            color_jitter = 0.25
-            grayscale_prob = 0
-            std_gray_noise = 0
-            
-            # loss
-            lambda_temp = 1. #1 # 20
-            temp_loss = 'CE' #'MSE' # 'none' #'graddot'
-            lambda_temp_align = 1.
-            temp_align_loss = 'gradnorm' #'graddot'
-            scale_by_norm=True,
-            asym_align = False
-            weight_temp_loss = True
-            bootstrap_beta = 0.
-            bootstrap_threshold = 1
-            
-            # temporal model
-            reverse = True
-            gru_irreg = True
-            gru_kernel_size = 7
-            gru_input = 'df'
-            gru_norm_dt = False
-            
-            train(output_dir=output_dir,
-                    main_input_source=main_input_source,
-                    aux_input_source=aux_input_source,
-                    train_csv_fn=train_csv_fn,
-                    val_csv_fn=val_csv_fn,
-                    temp=temp,
-                    num_epochs=num_epochs,
-                    random_seed=random_seed,
-                    new_history=new_history,
-                    starting_model_fn=starting_model_fn,
-                    resume_training=resume_training,
-                    freeze_matching_params=freeze_matching_params,
-                    model_arch=model_arch,
-                    undersample_training=undersample_training,
-                    undersample_validation=undersample_validation,
-                    num_patches_per_tile=num_patches_per_tile,
-                    n_negative_samples=n_negative_samples,
-                    batch_size=batch_size,
-                    patch_size=patch_size,
-                    lr_fe=lr_fe,
-                    lr_temp=lr_temp,
-                    update_period=update_period,
-                    bn_momentum=bn_momentum,
-                    augment_vals=augment_vals,
-                    gauss_blur_sigma=gauss_blur_sigma,
-                    color_jitter=color_jitter,
-                    grayscale_prob=grayscale_prob,
-                    std_gray_noise=std_gray_noise,
-                    lambda_temp=lambda_temp,
-                    temp_loss=temp_loss,
-                    lambda_temp_align = lambda_temp_align,
-                    temp_align_loss = temp_align_loss,
-                    scale_by_norm=scale_by_norm,
-                    asym_align=asym_align,
-                    weight_temp_loss=weight_temp_loss,
-                    bootstrap_beta=bootstrap_beta,
-                    bootstrap_threshold=bootstrap_threshold,
-                    reverse=reverse,
-                    gru_irreg=gru_irreg,
-                    gru_kernel_size=gru_kernel_size,
-                    gru_input=gru_input,
-                    gru_norm_dt = gru_norm_dt,
-                    common_input_bands=common_input_bands,
-                    num_workers_train=num_workers_train,
-                    num_workers_val=num_workers_val,
-                    debug=debug,
-                    no_user_input=no_user_input,
-                    wandb_tracking=wandb_tracking,
-                    wandb_name=exp_name)
-            
-        # parameters for mono-temporal training    
-        else:
-            # run parameters
-            main_input_source = 'SI2020'
-            aux_input_source = 'ALTI'  
-            train_csv_fn = 'data/csv/{}_{}_TLM6c_train_with_counts.csv'.format(main_input_source, 
-                                                                                aux_input_source)
-            val_csv_fn = 'data/csv/{}_{}_TLM6c_val.csv'.format(main_input_source, 
-                                                                aux_input_source)
-            resume_training = False
-            if resume_training:
-                starting_model_fn = 'output/Unet_SI2020_100cm_50lumagrayaugment_large_lrsched/training/Unet_SI2020_100cm_50lumagrayaugment_large_lrsched.pt'
-                new_history = False
-            else:
-                starting_model_fn = None
-                new_history = True
-            model_arch = 'Unet'
-            
-            # data loading
-            undersample_training = 1
-            num_patches_per_tile = 2 #small value to keep a diverse batch #(1000/128)^2 = 61 
-            n_negative_samples = [20//undersample_training] 
-            
-            # training parameters
-            lr_fe = 1e-4
-            batch_size = 32 
-            update_period = 1
-            bn_momentum = 0.1
-            
-            # data augmentation
-            augment_vals = True
-            gauss_blur_sigma = 0.5
-            color_jitter = 0.5
-            grayscale_prob = 0.5
-            std_gray_noise = 0.1
-            
-            train(output_dir=output_dir,
-                    main_input_source=main_input_source,
-                    aux_input_source=aux_input_source,
-                    train_csv_fn=train_csv_fn,
-                    val_csv_fn=val_csv_fn,
-                    temp=temp,
-                    num_epochs=num_epochs,
-                    random_seed=random_seed,
-                    new_history=new_history,
-                    starting_model_fn=starting_model_fn,
-                    resume_training=resume_training,
-                    model_arch=model_arch,
-                    undersample_training=undersample_training,
-                    undersample_validation=undersample_validation,
-                    num_patches_per_tile=num_patches_per_tile,
-                    n_negative_samples=n_negative_samples,
-                    batch_size=batch_size,
-                    patch_size=patch_size,
-                    lr_fe=lr_fe,
-                    update_period=update_period,
-                    bn_momentum=bn_momentum,
-                    augment_vals=augment_vals,
-                    gauss_blur_sigma=gauss_blur_sigma,
-                    color_jitter=color_jitter,
-                    grayscale_prob=grayscale_prob,
-                    std_gray_noise=std_gray_noise,
-                    common_input_bands=common_input_bands,
-                    num_workers_train=num_workers_train,
-                    num_workers_val=num_workers_val,
-                    debug=debug,
-                    no_user_input=no_user_input,
-                    wandb_tracking=wandb_tracking,
-                    wandb_name=exp_name)
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt... exiting")
-        wandb.finish()
+        train(output_dir=output_dir,
+                main_input_source=main_input_source,
+                aux_input_source=aux_input_source,
+                train_csv_fn=train_csv_fn,
+                val_csv_fn=val_csv_fn,
+                temp=temp,
+                num_epochs=num_epochs,
+                random_seed=random_seed,
+                new_history=new_history,
+                starting_model_fn=starting_model_fn,
+                resume_training=resume_training,
+                model_arch=model_arch,
+                undersample_training=undersample_training,
+                undersample_validation=undersample_validation,
+                num_patches_per_tile=num_patches_per_tile,
+                n_negative_samples=n_negative_samples,
+                batch_size=batch_size,
+                patch_size=patch_size,
+                lr_fe=lr_fe,
+                update_period=update_period,
+                bn_momentum=bn_momentum,
+                augment_vals=augment_vals,
+                gauss_blur_sigma=gauss_blur_sigma,
+                color_jitter=color_jitter,
+                grayscale_prob=grayscale_prob,
+                std_gray_noise=std_gray_noise,
+                common_input_bands=common_input_bands,
+                num_workers_train=num_workers_train,
+                num_workers_val=num_workers_val,
+                debug=debug,
+                no_user_input=no_user_input)
         
