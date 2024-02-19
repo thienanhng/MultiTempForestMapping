@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 from torch.utils.data.dataset import IterableDataset
@@ -8,6 +9,8 @@ from math import ceil
 import pandas as pd
 import random
 import torchvision.transforms.functional as F
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'Data')
 
 class TrainingDataset(IterableDataset):
     """
@@ -261,9 +264,9 @@ class TrainingDataset(IterableDataset):
             - target_data (tensor)
         """
         try: # open files
-            img_fp = {k: rasterio.open(fn, "r") for k, fn in zip(self.input_col_names, 
+            img_fp = {k: rasterio.open(os.path.join(DATA_DIR, fn), "r") for k, fn in zip(self.input_col_names, 
                                                                  list(df_row[self.input_col_names]))}
-            target_fp = rasterio.open(df_row[self.target_col_name], "r")
+            target_fp = rasterio.open(os.path.join(DATA_DIR, df_row[self.target_col_name]), "r")
         except (RasterioIOError, rasterio.errors.CRSError) as e:
             print('WARNING: {}'.format(e))
             return None
@@ -371,7 +374,7 @@ class TempTrainingDataset(TrainingDataset):
                     for i, name in enumerate(item):
                         try:
                             fn = df_row[name]
-                            fp[i] = rasterio.open(fn, "r") 
+                            fp[i] = rasterio.open(os.path.join(DATA_DIR, fn), "r") 
                             years[i] = self.exp_utils.year_extractor(fn)
                         except TypeError: # filename is empty (reached end of the time series)
                             if i == 0: # no input time series to read
@@ -381,9 +384,9 @@ class TempTrainingDataset(TrainingDataset):
                     img_fp[key] = fp
                     img_years[key] = years
                 else: # single image
-                    img_fp[item] = rasterio.open(df_row[item], "r")
+                    img_fp[item] = rasterio.open(os.path.join(DATA_DIR, df_row[item]), "r")
                     img_years[item]= None
-            target_fp = rasterio.open(df_row[self.target_col_name], "r")
+            target_fp = rasterio.open(os.path.join(DATA_DIR, df_row[self.target_col_name]), "r")
         except (RasterioIOError, rasterio.errors.CRSError) as e:
             print('WARNING: {}'.format(e))
             return None

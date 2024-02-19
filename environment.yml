@@ -22,4 +22,4 @@ dependencies:
     - torch==2.1.0
     - torchvision==0.16.0
     - matplotlib-scalebar #==0.8.1
-prefix: /home/tanguyen/anaconda3/envs/TempForestMapping
+prefix: ~/anaconda3/envs/TempForestMapping

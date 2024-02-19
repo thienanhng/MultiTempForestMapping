@@ -1,6 +1,5 @@
 import os
 import rasterio
-from rasterio.windows import Window
 import shutil
 import random
 from osgeo import gdal
@@ -15,7 +14,8 @@ import random
 from tqdm import tqdm
 from collections import defaultdict
 from functools import partial
-from rasterio.enums import Resampling
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'Data')
 
 
 class Inference():
@@ -135,7 +135,7 @@ class Inference():
         else:
             new_nodata_val = nodata_val
         gdal.BuildVRT(  vrt_fn,  
-                        list(fns),
+                        [os.path.join(DATA_DIR, fn) for fn in list(fns)],
                         VRTNodata=new_nodata_val,
                         allowProjectionDifference=True)  
         return vrt_fn , new_nodata_val
@@ -989,7 +989,7 @@ class TempInference(Inference):
             if self.save_hard or self.save_soft: 
                 
                 # main segmentation output
-                writer = Writer(self.exp_utils, tile_num, input_im_fn)
+                writer = Writer(self.exp_utils, tile_num, os.path.join(DATA_DIR, input_im_fn))
                 for i, y in enumerate(all_years):
                     writer.save_seg_result(self.output_dir, 
                                             save_hard=self.save_hard, output_hard=output_hard[i], 

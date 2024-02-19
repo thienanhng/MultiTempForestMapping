@@ -79,7 +79,7 @@ def rates2metrics(dict, class_names, aggregate=False):
                                     'recall':rec, 
                                     'f1-score':f1, 
                                     'iou': iou,
-                                    'support (%)':class_support[c]/tot_support*100, 
+                                    'support (%)':div(class_support[c],tot_support)*100, 
                                     'support':class_support[c]}
         class_acc.append(acc)
         class_prec.append(prec)

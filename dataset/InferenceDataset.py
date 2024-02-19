@@ -10,6 +10,9 @@ import random
 from torch.utils.data.dataset import Dataset
 from scipy.ndimage import binary_dilation
 import pandas as pd
+import os
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.getcwd())), 'Data')
 
 class InferenceDataset(Dataset):
 
@@ -114,7 +117,7 @@ class InferenceDataset(Dataset):
 
     def _read_image_file(self, vrt, fn, max_margin=0, squeeze=True, res=1.0):
         """Resamples to 1m by default"""
-        with rasterio.open(fn, 'r') as f_tile:
+        with rasterio.open(os.path.join(DATA_DIR, fn), 'r') as f_tile:
             left, top = f_tile.bounds.left, f_tile.bounds.top
             h, w, = f_tile.height, f_tile.width
             orig_res = f_tile.res[0]

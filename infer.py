@@ -326,10 +326,12 @@ if __name__ == "__main__":
     #                 # 'Unet_SI2020_100cm_noaugment',
     #                 # 'Unet_SI2020gray_100cm'
     #                  ]
-    exp_name_list = ['NRUnet7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs2']
+    exp_name_list = [
+                    'Unet_SI2020_100cm_grayaugment_rs0' ]
     
     # Non Recurrent Unet with multi-temporal fine-tuning
     # exp_name_list = ['NRUnet7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0']
+    # exp_name_list = ['NRUnet7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs2']
     
     # ablation
     # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgradnorm_ltemp1_0_1_0'] 
@@ -341,7 +343,7 @@ if __name__ == "__main__":
         exp_name_list = new_exp_name_list
                         
     data_set = 'mylabels_test' 
-    epoch = 39 
+    epoch = 19 #39 
     end_year = 2020
     padding = 64  #0 for evaluation, 64 for vizualisation
         
@@ -355,9 +357,9 @@ if __name__ == "__main__":
         aux_input_source = 'ALTI',
         overwrite=True,
         evaluate=True, 
-        save_hard=True,
-        save_soft=True,
-        save_temp_diff=False,
+        save_hard=False,
+        save_soft=False,
+        save_temp_diff=True,
         temp=True,
         batch_size=512, #32, # does not matter if patch_size == tile_size
         patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation

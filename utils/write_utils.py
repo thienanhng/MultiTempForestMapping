@@ -2,6 +2,7 @@ import os
 import rasterio
 import numpy as np
 
+
 class Writer():
     def __init__(self, exp_utils, tilenum, template_fn, template_res=1.0, dest_res=1.0):
         # get rasterio profile
