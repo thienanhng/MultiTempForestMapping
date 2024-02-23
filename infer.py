@@ -168,14 +168,8 @@ def infer(csv_fn,
     # Set model architecture
     decoder_channels = (256, 128, 64, 32)
     upsample = (True, True, True, False)
-    if aux_input_source is not None:
-        # 2 input modalities
-        aux_in_channels = exp_utils.input_channels['input_aux']
-        aux_in_position = 0
-    else:
-        # 1 input modality
-        aux_in_channels = None
-        aux_in_position = None
+    aux_in_channels = exp_utils.input_channels['input_aux']
+        
     init_stride = [1, 1] # to keep the same spatial resolution as the input
     # Create model
     if temp:
@@ -187,7 +181,6 @@ def infer(csv_fn,
                         out_channels = exp_utils.output_channels,
                         upsample = upsample,
                         aux_in_channels = aux_in_channels,
-                        aux_in_position = aux_in_position,
                         init_stride=init_stride,
                         reverse=reverse,
                         rec_init=rec_init,
@@ -203,7 +196,6 @@ def infer(csv_fn,
                         out_channels = exp_utils.output_channels,
                         upsample = upsample,
                         aux_in_channels = aux_in_channels,
-                        aux_in_position = aux_in_position,
                         init_stride=init_stride,
                         reverse=reverse,
                         unet_out_channels=exp_utils.output_channels,
@@ -221,7 +213,6 @@ def infer(csv_fn,
                         out_channels = exp_utils.output_channels,
                         upsample = upsample,
                         aux_in_channels = aux_in_channels,
-                        aux_in_position = aux_in_position,
                         init_stride=init_stride)
             
     else:
@@ -231,7 +222,6 @@ def infer(csv_fn,
                         out_channels = exp_utils.output_channels,
                         upsample = upsample,
                         aux_in_channels = aux_in_channels,
-                        aux_in_position = aux_in_position,
                         init_stride=init_stride)
     try:
         model.load_state_dict(model_obj['model'])

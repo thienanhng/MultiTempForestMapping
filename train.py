@@ -125,8 +125,6 @@ def train(output_dir,
             raise FileNotFoundError('Could not find specified file {}'.format(val_csv_fn))
 
     ############ Check other parameters ############
-
-    n_input_sources = 1 if aux_input_source is None else 2
     
     if temp:
         if temp_loss == 'none':
@@ -240,14 +238,7 @@ def train(output_dir,
     # Set model architecture
     decoder_channels = (256, 128, 64, 32)
     upsample = (True, True, True, False)
-    if n_input_sources > 1:
-        # 2 input modalities
-        aux_in_channels = exp_utils.input_channels['input_aux']
-        aux_in_position = 0
-    else:
-        # 1 input modality
-        aux_in_channels = None
-        aux_in_position = None
+    aux_in_channels = exp_utils.input_channels['input_aux']
     init_stride = [1, 1]
 
     # Create model and criterion, and forward + backward pass function
@@ -277,7 +268,6 @@ def train(output_dir,
                         out_channels=exp_utils.output_channels,
                         upsample=upsample,
                         aux_in_channels=aux_in_channels,
-                        aux_in_position=aux_in_position,
                         init_stride=init_stride,
                         bn_momentum=bn_momentum,
                         reverse=reverse)
@@ -291,7 +281,6 @@ def train(output_dir,
                             out_channels=exp_utils.output_channels,
                             upsample=upsample,
                             aux_in_channels=aux_in_channels,
-                            aux_in_position=aux_in_position,
                             init_stride=init_stride,
                             bn_momentum=bn_momentum,
                             reverse=reverse,
@@ -312,7 +301,6 @@ def train(output_dir,
                         out_channels = exp_utils.output_channels,
                         upsample = upsample,
                         aux_in_channels = aux_in_channels,
-                        aux_in_position = aux_in_position,
                         init_stride=init_stride,
                         bn_momentum=bn_momentum)
         fit = utils.fit_temp
@@ -325,7 +313,6 @@ def train(output_dir,
                     out_channels=exp_utils.output_channels,
                     upsample=upsample,
                     aux_in_channels=aux_in_channels,
-                    aux_in_position=aux_in_position,
                     init_stride=init_stride,
                     bn_momentum=bn_momentum)
         fit = utils.fit
@@ -523,6 +510,7 @@ def train(output_dir,
     tic = time.time()
     
     # create dataset
+    n_input_sources = 2
     if temp:
         dataset = TempTrainingDataset(
                                                     dataset_csv=train_csv_fn,
