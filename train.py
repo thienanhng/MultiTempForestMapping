@@ -2,7 +2,6 @@ import os
 import time
 import torch
 import numpy as np
-import torch.nn as nn
 import torch.optim as optim
 from dataset import TrainingDataset, TempTrainingDataset, collate_variable_length_series
 from models import Unet, GRUUnet, NonRecurrentUnet
@@ -56,15 +55,21 @@ def train(output_dir,
             reverse=False,
             gru_irreg=True,
             gru_kernel_size=7,
-            gru_last_actv='sigmoid',
             gru_init='last',
             gru_input='df',
-            gru_norm_dt=False,
             common_input_bands=None, 
             num_workers_train=8,
             num_workers_val=4,
             debug=False,
             no_user_input=True):
+    
+    
+    """ 
+        - freeze_matching_params: number of epochs for which, if a starting point is given for (part of) the model, the 
+            trainable parameters from the starting point will be frozen. 
+        - new_history: if a starting point is given, if new_history==True, a new the training history will be written. 
+            If False, the training history will be appended to the existing one.
+    """
     
     args_dict = locals().copy()
         
@@ -259,8 +264,6 @@ def train(output_dir,
     if temp:
         if model_arch == 'GRUUnet':
             print('Training a GRUUnet')
-            if not gru_irreg:
-                gru_norm_dt = False # just for clarity
             model = GRUUnet(encoder_depth=4, 
                             decoder_channels=decoder_channels,
                             in_channels=exp_utils.input_channels['input_main'], 
@@ -275,10 +278,8 @@ def train(output_dir,
                             gru_reset_channels=1,
                             gru_update_channels=1,
                             gru_kernel_size=gru_kernel_size,
-                            gru_last_actv=gru_last_actv,
                             gru_init=gru_init,
-                            gru_input=gru_input,
-                            gru_norm_dt=gru_norm_dt)
+                            gru_input=gru_input)
         else:
             print('Using a mono-temporal Unet')
             model = NonRecurrentUnet(encoder_depth=4, 
@@ -307,17 +308,11 @@ def train(output_dir,
     print('The model has {} trainable parameters'.format(num_train_params))
     model = model.to(device)
     
-    if exp_utils.n_classes == 2:
-        if model_arch == 'GRUUnet':
-            seg_criterion = MyBCELoss(ignore_val=exp_utils.i_nodata_val)
-        else:
-            seg_criterion = MyBCEWithLogitsLoss(ignore_val=exp_utils.i_nodata_val)
+    if model_arch == 'GRUUnet':
+        seg_criterion = MyBCELoss(ignore_val=exp_utils.i_nodata_val)
     else:
-        weights = torch.FloatTensor(exp_utils.get_CE_weights(exp_utils.class_freq['seg'], 1, 0))
-        print('Loss weights: {}'.format(weights))
-        seg_criterion = nn.CrossEntropyLoss(reduction = 'mean', 
-                                            ignore_index=exp_utils.i_nodata_val, 
-                                            weight=weights.to(device))
+        seg_criterion = MyBCEWithLogitsLoss(ignore_val=exp_utils.i_nodata_val)
+    
     if not skip_validation:
         val_seg_criterion = seg_criterion
 
@@ -327,10 +322,7 @@ def train(output_dir,
                                                 seg_normalization=model.seg_normalization,
                                                 use_temp_weights=weight_temp_loss)
         elif temp_loss == 'CE':
-            if exp_utils.n_classes == 2:
-                tempCE_seg_criterion = MyBCELoss(ignore_val=None)
-            else:
-               raise NotImplementedError
+            tempCE_seg_criterion = MyBCELoss(ignore_val=None)
             temp_criterion = MyTemporalCELoss(decision_func=exp_utils.decision_func, 
                                               seg_criterion=tempCE_seg_criterion,
                                               ignore_val=exp_utils.i_nodata_val,
@@ -728,9 +720,7 @@ def train(output_dir,
             last_checkpoint['model_params']['gru_irreg'] = gru_irreg
             last_checkpoint['model_params']['gru_kernel_size'] = gru_kernel_size
             last_checkpoint['model_params']['gru_input'] = gru_input
-            last_checkpoint['model_params']['gru_last_actv'] = gru_last_actv
             last_checkpoint['model_params']['gru_init'] = gru_init
-            last_checkpoint['model_params']['gru_norm_dt'] = gru_norm_dt
         torch.save(last_checkpoint, model_fn.replace('model.pt', 'model_epoch{}.pt'.format(epoch)))
     
     if not skip_validation:
@@ -786,7 +776,6 @@ if __name__ == "__main__":
                                             'training', 
                                             '{}_model_epoch19.pt'.format(starting_model_name))
         resume_training = True # must be True to train GRUUnet
-        freeze_matching_params = 0 #num_epochs
         model_arch = 'GRUUnet' #'NonRecurrentUnet' #
         
         # data loading
@@ -822,7 +811,6 @@ if __name__ == "__main__":
         gru_irreg = True
         gru_kernel_size = 7
         gru_input = 'df'
-        gru_norm_dt = False
         
         train(output_dir=output_dir,
                 main_input_source=main_input_source,
@@ -835,7 +823,6 @@ if __name__ == "__main__":
                 new_history=new_history,
                 starting_model_fn=starting_model_fn,
                 resume_training=resume_training,
-                freeze_matching_params=freeze_matching_params,
                 model_arch=model_arch,
                 undersample_training=undersample_training,
                 undersample_validation=undersample_validation,
@@ -863,7 +850,6 @@ if __name__ == "__main__":
                 gru_irreg=gru_irreg,
                 gru_kernel_size=gru_kernel_size,
                 gru_input=gru_input,
-                gru_norm_dt = gru_norm_dt,
                 common_input_bands=common_input_bands,
                 num_workers_train=num_workers_train,
                 num_workers_val=num_workers_val,

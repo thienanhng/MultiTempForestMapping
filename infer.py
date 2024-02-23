@@ -142,12 +142,6 @@ def infer(csv_fn,
                 gru_irreg = False 
                 print('parameter "gru_irreg" not found in saved model hyperparameters, setting it to {}.'.\
                         format(gru_irreg))
-            try:
-                gru_norm_dt = model_obj['model_params']['gru_norm_dt']
-            except KeyError:
-                gru_norm_dt = True 
-                print('parameter "gru_norm_dt" not found in saved model hyperparameters, setting it to {}.'.\
-                        format(gru_norm_dt))
                     
     else:
         rec_init = None
@@ -185,8 +179,7 @@ def infer(csv_fn,
                         gru_reset_channels=1,
                         gru_update_channels=1,
                         gru_kernel_size=gru_kernel_size,
-                        gru_input=gru_input,
-                        gru_norm_dt=gru_norm_dt) 
+                        gru_input=gru_input) 
         else:
             print('Using a mono-temporal Unet')
             model = NonRecurrentUnet(encoder_depth=4, 
@@ -228,8 +221,7 @@ def infer(csv_fn,
                                         num_workers=num_workers, 
                                         device=device, 
                                         undersample=1, 
-                                        random_seed=random_seed,
-                                        fill_batch=True)
+                                        random_seed=random_seed)
     else:
         inference = utils.Inference(model, 
                                     csv_fn, 

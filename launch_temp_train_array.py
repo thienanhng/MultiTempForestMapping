@@ -11,14 +11,12 @@ train_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_train_with_counts.csv'.format(
                                                                                 aux_input_source)
 val_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_multitemp_mylabels_val.csv'.format(main_input_source, 
                                                                                     aux_input_source)
-new_history = True
 starting_model_name = 'Unet_SI2020_100cm_grayaugment_rs0'
 starting_model_fn =  os.path.join('output', 
                                     starting_model_name, 
                                     'training', 
                                     '{}_model.pt'.format(starting_model_name))
 resume_training = True #  False # must be True to train GRUUnet
-freeze_matching_params = 0 #num_epochs
 model_arch = 'GRUUnet' #'NonRecurrentUnet' #
 random_seed = 0
 validation_period = 1
@@ -60,7 +58,6 @@ weight_temp_loss = True
 reverse = True
 gru_irreg = True
 gru_kernel_size = 7
-gru_norm_dt = True and gru_irreg
 
 # data pre-processing
 common_input_bands = None
@@ -76,7 +73,7 @@ debug=False
 for random_seed in range(5):
     if model_arch == 'GRUUnet':
         if gru_irreg:
-            model_arch_name = 'NIrregGRU' if gru_norm_dt else 'IrregGRU'
+            model_arch_name = 'IrregGRU'
         else:
             model_arch_name = 'GRU'
     elif model_arch == 'NonRecurrentUnet':
@@ -97,11 +94,10 @@ for random_seed in range(5):
                 temp_loss_name = '_'.join([temp_loss, temp_align_loss])
         lambda_temp_name = '_'.join([str(lambda_temp), str(lambda_temp_align)])
 
-    exp_name = '{}{}_{}_freeze{}_lrfe{}_lrtemp{}_tloss{}_ltemp{}_rs{}'.format(
+    exp_name = '{}{}_{}_lrfe{}_lrtemp{}_tloss{}_ltemp{}_rs{}'.format(
                                 model_arch_name,
                                 gru_kernel_size,
                                 'bwrd' if reverse else 'fwrd',
-                                freeze_matching_params,
                                 lr_fe,
                                 lr_temp,
                                 temp_loss_name,
@@ -128,10 +124,8 @@ for random_seed in range(5):
                             temp=temp,
                             num_epochs=num_epochs,
                             random_seed=random_seed,
-                            new_history=new_history,
                             starting_model_fn=starting_model_fn,
                             resume_training=resume_training,
-                            freeze_matching_params=freeze_matching_params,
                             model_arch=model_arch,
                             undersample_training=undersample_training,
                             undersample_validation=undersample_validation,
@@ -159,7 +153,6 @@ for random_seed in range(5):
                             reverse=reverse,
                             gru_irreg=gru_irreg,
                             gru_kernel_size=gru_kernel_size,
-                            gru_norm_dt=gru_norm_dt,
                             common_input_bands=common_input_bands,
                             num_workers_train=num_workers_train,
                             num_workers_val=num_workers_val,

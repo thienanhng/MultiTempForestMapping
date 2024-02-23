@@ -11,7 +11,6 @@ train_csv_fn = 'data/csv/{}_{}_TLM6c_train_with_counts.csv'.format(main_input_so
                                                                     aux_input_source)
 val_csv_fn = 'data/csv/{}_{}_TLM6c_val.csv'.format(main_input_source, 
                                                     aux_input_source)
-new_history = True
 model_arch = 'Unet' #'NonRecurrentUnet' #
 random_seed = 0
 validation_period = 1
@@ -77,7 +76,6 @@ for exp_name_base, common_input_bands, grayscale_prob in \
                                 temp=temp,
                                 num_epochs=num_epochs,
                                 random_seed=random_seed,
-                                new_history=new_history,
                                 model_arch=model_arch,
                                 undersample_training=undersample_training,
                                 undersample_validation=undersample_validation,

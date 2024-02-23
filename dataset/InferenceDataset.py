@@ -395,19 +395,14 @@ class TempInferenceDataset(InferenceDataset):
                  target_vrt_fns_per_year=None, 
                  target_vrt_fns=None, 
                  input_nodata_val=None, 
-                 target_nodata_val=None,
-                 fill_batch=False):
+                 target_nodata_val=None):
         
         '''
-        fill_batch = True correspond to building batches with patches of diverse time footprints (through compacting and 
-        padding along the time direction). Only implemented for time series with common spatial resolution and depth.
-        fill_batch = False corresponds to building batches with patches with the same temporal footprint. This results 
-        in a larger number of smaller batches.
+        Builds batches with patches of diverse time footprints (through compacting and padding along the time direction). 
         '''
         
         self.input_fns_per_year = input_fns_per_year
         self.target_fns_per_year = target_vrt_fns_per_year
-        self.fill_batch = fill_batch
         
         super().__init__(input_fns=input_fns,
                         input_vrt_fns=input_vrt_fns, 
@@ -849,196 +844,6 @@ class TempInferenceDataset(InferenceDataset):
                     input_nodata_mask, years_dic
         else:
             return (None,) * 9        
-
-    
-    def get_single_tfootprint_batches(self, idx):
-        '''
-        Get batches from a tile with each batch containing patches with the exact same time footprint. This avoids 
-        padding the time series. The resulting batches can have different lengths along the temporal dimension.
-        '''
-        
-        #### read tiles
-                
-        input_image_data, input_image_years, tile_height, tile_width, tile_margins = \
-                                                                        self._read_all_tile_data(
-                                                                            idx, 
-                                                                            data_names=self.exp_utils.inputs, 
-                                                                            vrt_dict=self.input_vrt,
-                                                                            fns_per_year_dict=self.input_fns_per_year,
-                                                                            fns_dict=self.input_fns,
-                                                                            nodata_dict=self.input_nodata_val,
-                                                                            tile_dims = None)
-        if input_image_data is None:
-            # print ('Skipping tile.')
-            return (None,) * 8
-        
-        if self.sample_target:
-            target_image_data, _, target_image_years, *_ = self._read_all_tile_data(idx, 
-                                                            data_names=self.exp_utils.targets, 
-                                                            vrt_dict=self.target_vrt,
-                                                            fns_per_year_dict=self.target_fns_per_year,
-                                                            fns_dict=self.target_fns,
-                                                            nodata_dict=self.target_nodata_val,
-                                                            tile_dims=(tile_height, tile_width, tile_margins))
-
-
-        else:
-            target_image_data = None
-        
-        #### build batches        
-        input_nodata_mask = self._get_input_nodata_mask(input_image_data, tile_height, tile_width, tile_margins)
-        n_steps = len(input_nodata_mask)
-        n_footprints = 0
-        time_footprints = np.empty((n_steps,0), dtype=np.bool)
-        
-        coords = self._get_patch_coordinates(tile_height, tile_width)
-        num_patches = coords.shape[0]
-        # group patches into groups of similar time footprint
-        coords_per_footprint = [[] for _ in range(n_footprints)]
-        for j in range(num_patches):
-            xp, yp = coords[j]
-            x_start, x_stop = xp, xp+self.patch_size
-            y_start, y_stop = yp, yp+self.patch_size
-            nodata_patch = input_nodata_mask[:, x_start:x_stop, y_start:y_stop]
-            patch_footprints, counts = np.unique(nodata_patch.reshape(n_steps, -1), axis=-1, return_counts=True)
-            valid_footprints_idx = np.nonzero(np.any(~patch_footprints, axis=0))[0] 
-            if len(valid_footprints_idx) > 0: # there are footprints that contain at least one valid time step
-                patch_footprints = patch_footprints[:, valid_footprints_idx]
-                counts = counts[valid_footprints_idx]
-                if len(valid_footprints_idx) > 1:
-                    # ignore footprints corresponding to a few pixels only
-                    main_footprint_idx = np.argmax(counts)
-                    keep_mask = np.full((len(valid_footprints_idx),), fill_value=True)
-                    for k in range(len(valid_footprints_idx)):
-                        if k != main_footprint_idx:
-                            if counts[k] < counts[main_footprint_idx] / 100.:
-                                keep_mask[k] = False
-                    if not np.all(keep_mask):
-                        patch_footprints = patch_footprints[:, keep_mask]
-                        counts = counts[keep_mask]  
-                    if patch_footprints.shape[-1] > 1:          
-                            # choose the common valid steps as the footprint
-                        common_footprint = np.any(patch_footprints, axis=1)
-                    else:
-                        common_footprint = patch_footprints.squeeze(-1)
-                else:
-                    common_footprint = patch_footprints.squeeze(-1)
-                if not np.all(common_footprint):
-                    try:
-                        coords_per_footprint[np.argwhere(np.all(common_footprint == time_footprints.T, 
-                                                                axis=1)).item()].append(coords[j])
-                    except ValueError: #the footprint was not found in time_footprints, so we add it
-                        time_footprints = np.concatenate((time_footprints, common_footprint[:, np.newaxis]), axis=1)
-                        coords_per_footprint.append([coords[j]])
-                        n_footprints += 1
-                
-            else: 
-                continue
-        # split the groups into batches if the size of the group is larger than the batch size
-        time_footprints_per_batch = []
-        coords_per_batch = []
-        for i in range(n_footprints):
-            num_patches_i = len(coords_per_footprint[i])
-            num_batches_i, remainder_i = divmod(num_patches_i, self.batch_size)
-            if remainder_i > 0:
-                num_batches_i += 1
-            for j in range(num_batches_i):
-                coords_per_batch.append(
-                    np.column_stack(coords_per_footprint[i][j*self.batch_size:
-                                                            min((j+1)*self.batch_size, num_patches_i)]
-                                    ).T
-                                        )
-                time_footprints_per_batch.append(time_footprints[:,i])
-        try:
-            time_footprints_per_batch = np.stack(time_footprints_per_batch)
-        except ValueError:
-            pass
-        
-        # check if some years are not used in the batches
-        years_not_used = np.all(time_footprints_per_batch, axis=0)
-        if np.any(years_not_used):
-            years_used = ~years_not_used
-            time_footprints_per_batch = time_footprints_per_batch[:, years_used]
-            for key in input_image_data: 
-                if isinstance(input_image_data[key], list):
-                    input_image_data[key] = [item for item, used in zip(input_image_data[key],years_used) if used]
-                    new_year_list = [item for item, used in zip(input_image_years[key],years_used) if used]
-                    input_image_years[key] = new_year_list
-            input_nodata_mask = input_nodata_mask[years_used]
-        
-            if self.sample_target:  
-                to_del = []
-                for key in target_image_data:
-                    if key in target_image_years:
-                        if np.all([y not in new_year_list for y in target_image_years[key]]):
-                            to_del.append(key)
-                target_image_data = {k: v for k, v in target_image_data.items() if k not in to_del}
-                target_image_years = {k: v for k, v in target_image_years.items() if k not in to_del}
-        
-        # build input batches
-        input_batches = {}
-        input_image_data = self.exp_utils.preprocess_mixed_inputs(input_image_data, input_image_years)
-        for key, data in input_image_data.items(): 
-            if isinstance(data, list): # multitemporal data
-                batches = [None] * len(data)
-                for j, item in enumerate(data):
-                    batches[j] = self._build_batches(item, coords_per_batch)
-                input_batches[key] = batches
-            else: # static data
-                input_batches[key] = self._build_batches(data, coords_per_batch)
-
-        # build target batches
-        target_batches = None
-        target_tiles = None
-        top_margin, left_margin, bottom_margin, right_margin = [int(m) for m in tile_margins]
-        if self.sample_target:
-            target_batches = {}
-            target_tiles = {}
-            for key, item in target_image_data.items(): 
-                if item is not None:
-                    if isinstance(item, np.ndarray): # non temporal
-                        # target for computing the loss
-                        target_batches[key] = self._build_batches(self.exp_utils.preprocess_training_target(item, key), 
-                                                                    coords_per_batch)
-                        # targets for evaluation metrics
-                        target_tile = self.exp_utils.preprocess_inference_target(
-                                        item[top_margin:tile_height-bottom_margin, left_margin:tile_width-right_margin],
-                                        key) 
-                        target_borders_tile = self._get_masked_target(target_tile, self.target_nodata_val[key])
-                        target_tiles[key] = (target_tile, target_borders_tile)
-                    else: # temporal
-                        # suboptimal because the tiles are padded with a margin when reading, then the margin is removed 
-                        # here
-                        target_tiles[key] = {}
-                        for y, data in zip(target_image_years[key], item):
-                            # targets for evaluation metrics
-                            target_tile = self.exp_utils.preprocess_inference_target(
-                                            data[top_margin:tile_height-bottom_margin, 
-                                                 left_margin:tile_width-right_margin],
-                                            key) 
-                            if key in ['target_tlm', 'target_multitemp']:
-                                target_borders_tile = self._get_masked_target(target_tile, self.target_nodata_val[key])
-                                target_tiles[key][y] = (target_tile, target_borders_tile)
-                            else:
-                                target_tiles[key][y] = target_tile
-            
-
-        # remove margins in the nodata mask
-        input_nodata_mask = input_nodata_mask[:, top_margin:tile_height-bottom_margin, 
-                                              left_margin:tile_width-right_margin]
-        
-        # join year dicts together
-        years = input_image_years
-        if self.sample_target:
-            for k, v in target_image_years.items():
-                years[k] = v
-        
-        return (input_batches, target_batches), target_tiles, coords_per_batch, \
-                torch.from_numpy(~time_footprints_per_batch), (tile_height, tile_width), tile_margins, \
-                input_nodata_mask, years
         
     def __getitem__(self, idx):
-        if self.fill_batch:
-            return self.get_batches(idx)
-        else:
-            return self.get_single_tfootprint_batches(idx)
+        return self.get_batches(idx)

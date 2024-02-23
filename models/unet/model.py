@@ -188,7 +188,6 @@ class GRUUnet(Module):
             gru_update_channels: int=1,
             gru_kernel_size: int=3,
             gru_init:str='last',
-            gru_norm_dt:bool=True,
             reverse=False,
             **kwargs):
         
@@ -232,8 +231,7 @@ class GRUUnet(Module):
                         kernel_size=gru_kernel_size,
                         last_actv=gru_last_actv,
                         bias=True,
-                        Wh_template=Wh_template,
-                        norm_dt=gru_norm_dt)
+                        Wh_template=Wh_template)
         else:
             self.gru = GRU(in_channels=gru_in_channels,
                         reset_channels=gru_reset_channels,

@@ -500,8 +500,8 @@ class TempInference(Inference):
                  num_workers=0, 
                  device=0, 
                  undersample=1,
-                 random_seed=None, 
-                 fill_batch=True):
+                 random_seed=None):
+        
         super().__init__(model, 
                          file_list, 
                          exp_utils, 
@@ -518,7 +518,6 @@ class TempInference(Inference):
                          random_seed=random_seed)
         
         self.save_temp_diff = save_temp_diff
-        self.fill_batch = fill_batch
         
     def _check_col_names(self, df, source_names):
         """Get the column names used to read the dataset dataframe"""
@@ -717,16 +716,10 @@ class TempInference(Inference):
                 seg_losses = np.zeros((num_batches,))
                 valid_px_list = np.zeros((num_batches,))
             if temp_criterion is not None:
-                if self.fill_batch:
-                    temp_losses_per_year = [None] * num_batches
-                else:
-                    temp_losses_per_year = np.zeros((num_batches,n_t-1)) 
+                temp_losses_per_year = [None] * num_batches 
                 batch_temp_losses = np.zeros((num_batches,))
             if temp_align_criterion is not None:
-                if self.fill_batch:
-                    temp_align_losses_per_year = [None] * num_batches
-                else:
-                    temp_align_losses_per_year = np.zeros((num_batches,n_t-1)) 
+                temp_align_losses_per_year = [None] * num_batches
                 batch_temp_align_losses = np.zeros((num_batches,))
                 
         years = years.to(self.device)
@@ -734,10 +727,7 @@ class TempInference(Inference):
         for batch_idx in range(num_batches):
             # get the prediction for the batch
             input_data = self._dict_select_batch_and_todevice(inputs, batch_idx)
-            if self.fill_batch:
-                temporal_mask = None
-            else:
-                temporal_mask = time_footprints[batch_idx].to(self.device)
+            temporal_mask = None
             if targets is not None:
                 target_data = self._dict_select_batch_and_todevice(targets, batch_idx) 
             with torch.no_grad():
@@ -765,21 +755,20 @@ class TempInference(Inference):
                         if temp_criterion is not None:
                             n_t_this_batch = t_main_actv.shape[-3]
                             if n_t_this_batch > 1:
-                                if self.fill_batch:
-                                    (batch_temp_loss, batch_temp_loss_per_year), _ = \
-                                        temp_criterion(t_main_actv, years=years[batch_idx], return_per_year=True)
-                                else:
-                                    raise NotImplementedError
+                                (batch_temp_loss, batch_temp_loss_per_year), _ = temp_criterion(t_main_actv, 
+                                                                                                 years=years[batch_idx], 
+                                                                                                 return_per_year=True)
+  
                                 batch_temp_losses[batch_idx] = batch_temp_loss.detach().cpu()
                                 temp_losses_per_year[batch_idx] = batch_temp_loss_per_year
                         if temp_align_criterion is not None:
                             n_t_this_batch = t_main_actv.shape[-3]
                             if n_t_this_batch > 1:
-                                if self.fill_batch:
-                                    (batch_temp_align_loss, batch_temp_align_loss_per_year), _ = \
-                                        temp_align_criterion(t_main_actv, years=years[batch_idx], return_per_year=True)
-                                else:
-                                    raise NotImplementedError
+                                (batch_temp_align_loss, batch_temp_align_loss_per_year), _ = temp_align_criterion(
+                                                                                                t_main_actv, 
+                                                                                                years=years[batch_idx], 
+                                                                                                return_per_year=True)
+                                
                                 batch_temp_align_losses[batch_idx] = batch_temp_align_loss.detach().cpu()
                                 temp_align_losses_per_year[batch_idx] = batch_temp_align_loss_per_year
                         
@@ -797,21 +786,16 @@ class TempInference(Inference):
                 # bounding coordinates of predicted the patch (without padding margins) in the output accumulator
                 x_start, x_stop = x + padding, x + self.patch_size - padding
                 y_start, y_stop = y + padding, y + self.patch_size - padding
-                if self.fill_batch:
-                    # model predictions are stacked from the left
-                    current_step = 0
-                    for t in range(n_t):
-                        if time_footprints[batch_idx][j][t]:
-                            counts[t, x_start:x_stop, y_start:y_stop] += 1
-                            output[:, t, x_start:x_stop, y_start:y_stop] += main_pred[j, :, current_step, 
-                                                                                      xp_start:xp_stop, 
-                                                                                      yp_start:yp_stop]
-                            current_step += 1
-                else:
-                    counts[temporal_mask, x_start:x_stop, y_start:y_stop] += 1
-                    output[:, temporal_mask, x_start:x_stop, y_start:y_stop] += main_pred[j, :, temporal_mask, 
-                                                                                          xp_start:xp_stop, 
-                                                                                          yp_start:yp_stop]
+                # model predictions are stacked from the left
+                current_step = 0
+                for t in range(n_t):
+                    if time_footprints[batch_idx][j][t]:
+                        counts[t, x_start:x_stop, y_start:y_stop] += 1
+                        output[:, t, x_start:x_stop, y_start:y_stop] += main_pred[j, :, current_step, 
+                                                                                    xp_start:xp_stop, 
+                                                                                    yp_start:yp_stop]
+                        current_step += 1
+
                 
         # normalize the accumulated predictions
         nopred_mask = counts==0
@@ -894,8 +878,7 @@ class TempInference(Inference):
                                 target_vrt_fns=self.target_vrt_fns,
                                 target_vrt_fns_per_year= self.target_fns_per_year_df,
                                 input_nodata_val=self.input_vrt_nodata_val,
-                                target_nodata_val=self.target_vrt_nodata_val,
-                                fill_batch=self.fill_batch)
+                                target_nodata_val=self.target_vrt_nodata_val)
 
         dataloader = torch.utils.data.DataLoader(
             ds,

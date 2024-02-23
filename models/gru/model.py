@@ -130,11 +130,10 @@ class IrregGRU(GRU):
                  kernel_size: int=3,
                  last_actv: nn.Module=torch.sigmoid,
                  Wh_template: nn.Module=None,
-                 norm_dt: bool=True,
                  norm_val: float=5.82):
         """
-        - norm_dt: whether to scale the update and reset gates by the time intervals
-        - norm_val: value to normalize the time intervals by
+        - norm_val: value to normalize the time intervals by (used to scale the update and reset gates by normalized 
+            time intervals)
         """
         super().__init__(in_channels=in_channels,
                          reset_channels=reset_channels,
@@ -147,10 +146,7 @@ class IrregGRU(GRU):
         
         self.out_channels = out_channels
         self.eps = 1e-10
-        if norm_dt:
-            self.norm_val = norm_val
-        else:
-            self.norm_val = 1.0
+        self.norm_val = norm_val
    
     def forward(self, input, last_output=None, t_interv=None, *args, **kwargs):
         if last_output is None:

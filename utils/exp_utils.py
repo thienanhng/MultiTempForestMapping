@@ -58,7 +58,6 @@ CLASS_NAMES = ['NF', 'F']
 # number of classes
 N_CLASSES = 2
 
-
 # TLM translation for sub-tasks
 nodata_mapping = np.full(251, fill_value = I_NODATA_VAL)
 #                                                                   NF   OF  CF  SF  Gehoelzflaeche 
@@ -204,15 +203,8 @@ class ExpUtils:
         self.n_classes = N_CLASSES
         self.colormap = COLORMAP
         self.class_names = CLASS_NAMES
-        if self.n_classes == 2:
-            self.decision_func = self.binary_decision
-        else:
-            self.decision_func = self.argmax_decision
-
-        if self.n_classes == 2:
-            self.output_channels = 1
-        else:
-            self.output_channels = self.n_classes 
+        self.decision_func = self.binary_decision
+        self.output_channels = 1 
         
         
         # nodata values for writing output rasters
@@ -335,7 +327,6 @@ class ExpUtils:
                                                          mode=mode) for input_name, img in img_dict.items()}
         
     def preprocess_mixed_inputs(self, img_dict, year_dict=None):
-        #processed_inputs = [None] * len(img_list)
         processed_inputs = {}
         for key, data in img_dict.items():
             if isinstance(data, list):
@@ -422,41 +413,12 @@ class ExpUtils:
 
     ######## Methods for converting soft predictions to hard predictions ######
 
-    def argmax_decision(self, output, *args, **kwargs):
-        output_hard = output.argmax(axis=0).astype(np.uint8)
-        return output_hard
-
     def binary_decision(self, output, thresh=0.5): 
         if isinstance(output, torch.Tensor):
             output_hard = (output > thresh)
         else: # output is a numpy array
             output_hard = (output > thresh).astype(np.uint8)
-        return output_hard
-
-    ######## Other methods ####################################################
-
-    @staticmethod
-    def get_CE_weights(class_freq, n_pos = None, n_neg = None):
-        """
-        Compute class weights (for the Cross Entropy loss) with weight proportional to 1/frequency
-
-        Args:
-            - n_pos (int): number of positive examples (i.e. examples with a least one non-zero pixel)
-            - n_neg (int): number of negative examples (i.e. examples containing class 0 only)
-        """
-        if n_pos is None and n_neg is None:
-            # default weights (correspond to using the full dataset)
-            prob = class_freq['all']['train'] 
-        elif n_pos is not None and n_neg is not None: 
-            # correct the class probabilities, assuming class 0 is the "negative" class
-            pos_class_freq = class_freq['positives']['train']
-            neg_class_freq = np.zeros_like(pos_class_freq)
-            neg_class_freq[0] = 1.0
-            prob = (pos_class_freq * n_pos + neg_class_freq * n_neg) / (n_pos + n_neg)
-        else:
-            raise ValueError('Both n_pos and n_neg should be specified')
-        return np.max(prob) / prob
-    
+        return output_hard    
 class SimulateGrayscale:
     def __init__(self, prob=0.5, output_channels=3, std_noise=0.1):
         self.output_channels = output_channels
@@ -465,7 +427,6 @@ class SimulateGrayscale:
             self.prob = 1
         else:
             self.prob = prob
-        
         
     def simulate(self, x):
         if np.random.random() <= self.prob: 
