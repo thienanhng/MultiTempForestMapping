@@ -1,3 +1,5 @@
+# launch a series of multitemporal fine-tuning experiments
+
 import os
 from train import train
 
@@ -16,8 +18,8 @@ starting_model_fn =  os.path.join('output',
                                     starting_model_name, 
                                     'training', 
                                     '{}_model.pt'.format(starting_model_name))
-resume_training = True #  False # must be True to train GRUUnet
-model_arch = 'GRUUnet' #'NonRecurrentUnet' #
+resume_training = True 
+model_arch = 'GRUUnet' 
 random_seed = 0
 validation_period = 1
 
@@ -34,29 +36,28 @@ lr_fe = 1e-6
 lr_temp = 1e-4
 # each batch will containg patches extracted from batch_size/num_patches_per_tile different tiles. This impacts the
 # batch norm statistics.
-batch_size = 8 # 64 for frozen U-net
+batch_size = 8 
 update_period = 256 // batch_size # simulate a larger batch size. 
-bn_momentum = 1e-5 #0.001 for batch_size 64
+bn_momentum = 1e-5
 
 # data augmentation
 augment_vals = True 
 gauss_blur_sigma = 0.25
 color_jitter = 0.25
 grayscale_prob = 0
-std_gray_noise = 0
 
 # loss
-lambda_temp = 1.0 #20
-temp_loss = 'CE' #MSE' #'expansion' # , 'none' #'graddot'
+lambda_temp = 1.0
+temp_loss = 'CE' #MSE'#'none' 
 lambda_temp_align = 1.0
-temp_align_loss = 'gradnorm' #'graddot'
+temp_align_loss = 'CA' #'CA_ablation' #'none
 scale_by_norm = True
 asym_align = True
 weight_temp_loss = True
 
 # temporal model
 reverse = True
-gru_irreg = True
+gru_irreg = True # False
 gru_kernel_size = 7
 
 # data pre-processing
@@ -103,59 +104,50 @@ for random_seed in range(5):
                                 temp_loss_name,
                                 lambda_temp_name,
                                 random_seed)
-    exp_name = exp_name.replace('.', '_')
-    exp_name = exp_name.replace('-', 'm')
-    # exp_name = 'debug'
+    exp_name = exp_name.replace('.', '_').replace('-', 'm')
     output_dir = os.path.join('output', exp_name)
     
-    # if os.path.exists(output_dir):
-    #     print('{} exists. Skipping it'.format(output_dir))
-    
-    # else:
-    if True:
+    print('Launching experiment {}'.format(exp_name))
 
-        print('Launching experiment {}'.format(exp_name))
-
-        train(  output_dir=output_dir,
-                            main_input_source=main_input_source,
-                            aux_input_source=aux_input_source,
-                            train_csv_fn=train_csv_fn,
-                            val_csv_fn=val_csv_fn,
-                            temp=temp,
-                            num_epochs=num_epochs,
-                            random_seed=random_seed,
-                            starting_model_fn=starting_model_fn,
-                            resume_training=resume_training,
-                            model_arch=model_arch,
-                            undersample_training=undersample_training,
-                            undersample_validation=undersample_validation,
-                            num_patches_per_tile=num_patches_per_tile,
-                            n_negative_samples=n_negative_samples,
-                            negative_sampling_schedule=negative_sampling_schedule,
-                            batch_size=batch_size,
-                            patch_size=patch_size,
-                            lr_fe=lr_fe,
-                            lr_temp=lr_temp,
-                            bn_momentum=bn_momentum,
-                            update_period=update_period,
-                            augment_vals=augment_vals,
-                            gauss_blur_sigma=gauss_blur_sigma,
-                            color_jitter=color_jitter,
-                            grayscale_prob=grayscale_prob,
-                            std_gray_noise=std_gray_noise,
-                            lambda_temp=lambda_temp,
-                            temp_loss=temp_loss,
-                            lambda_temp_align=lambda_temp_align,
-                            temp_align_loss=temp_align_loss,
-                            scale_by_norm=scale_by_norm,
-                            asym_align=asym_align,
-                            weight_temp_loss=weight_temp_loss,
-                            reverse=reverse,
-                            gru_irreg=gru_irreg,
-                            gru_kernel_size=gru_kernel_size,
-                            common_input_bands=common_input_bands,
-                            num_workers_train=num_workers_train,
-                            num_workers_val=num_workers_val,
-                            debug=debug,
-                            no_user_input=no_user_input)
+    train(  output_dir=output_dir,
+            main_input_source=main_input_source,
+            aux_input_source=aux_input_source,
+            train_csv_fn=train_csv_fn,
+            val_csv_fn=val_csv_fn,
+            temp=temp,
+            num_epochs=num_epochs,
+            random_seed=random_seed,
+            starting_model_fn=starting_model_fn,
+            resume_training=resume_training,
+            model_arch=model_arch,
+            undersample_training=undersample_training,
+            undersample_validation=undersample_validation,
+            num_patches_per_tile=num_patches_per_tile,
+            n_negative_samples=n_negative_samples,
+            negative_sampling_schedule=negative_sampling_schedule,
+            batch_size=batch_size,
+            patch_size=patch_size,
+            lr_fe=lr_fe,
+            lr_temp=lr_temp,
+            bn_momentum=bn_momentum,
+            update_period=update_period,
+            augment_vals=augment_vals,
+            gauss_blur_sigma=gauss_blur_sigma,
+            color_jitter=color_jitter,
+            grayscale_prob=grayscale_prob,
+            lambda_temp=lambda_temp,
+            temp_loss=temp_loss,
+            lambda_temp_align=lambda_temp_align,
+            temp_align_loss=temp_align_loss,
+            scale_by_norm=scale_by_norm,
+            asym_align=asym_align,
+            weight_temp_loss=weight_temp_loss,
+            reverse=reverse,
+            gru_irreg=gru_irreg,
+            gru_kernel_size=gru_kernel_size,
+            common_input_bands=common_input_bands,
+            num_workers_train=num_workers_train,
+            num_workers_val=num_workers_val,
+            debug=debug,
+            no_user_input=no_user_input)
 

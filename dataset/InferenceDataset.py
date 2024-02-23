@@ -669,10 +669,8 @@ class TempInferenceDataset(InferenceDataset):
                                                                                 nodata_dict=self.input_nodata_val,
                                                                                 tile_dims = None)
         except TypeError: # problem in reading data
-            # print ('Skipping tile.')
             return (None,) * 9
         if input_image_data is None:
-            # print ('Skipping tile.')
             return (None,) * 9
         
         if self.sample_target:
@@ -714,7 +712,7 @@ class TempInferenceDataset(InferenceDataset):
                     valid_coords.append(coords[j])
                     footprints.append(np.full(nodata_patch.shape[0], fill_value=False))
                 else: # several footprints in the patch
-                    patch_footprints, counts = np.unique(nodata_patch, axis=-1, return_counts=True)
+                    patch_footprints, counts = np.unique(nodata_patch, axis=-1, return_counts=True) 
                     # ignore footprints corresponding to less than max_nodata_area or contain no valid time steps
                     valid_footprints_mask = np.any(~patch_footprints, axis=0) * (counts > max_nodata_area)
                     n_valid_footprints = np.sum(valid_footprints_mask)
@@ -843,6 +841,7 @@ class TempInferenceDataset(InferenceDataset):
                     time_footprints_per_batch, years_per_batch, (tile_height, tile_width), tile_margins, \
                     input_nodata_mask, years_dic
         else:
+            print('Too many nodata values in the tile.')
             return (None,) * 9        
         
     def __getitem__(self, idx):

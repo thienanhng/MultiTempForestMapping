@@ -122,8 +122,7 @@ class ExpUtils:
                  augment_main_input=True,
                  jitter=0.1, 
                  sigma_max=0.3, 
-                 grayscale_prob=0.5, 
-                 std_gray_noise=0.1):
+                 grayscale_prob=0.5):
         """
         Args:
             - inputs_sources (list of str): input sources
@@ -175,8 +174,7 @@ class ExpUtils:
             kernel_size = int(ceil(6*sigma_max)//2*2+1)
             gauss_blur = GaussianBlur(kernel_size=kernel_size, sigma=(1e-10, sigma_max))
             sim_gray = SimulateGrayscale(prob=grayscale_prob, 
-                                         output_channels=self.input_channels['input_main'], 
-                                         std_noise=std_gray_noise)
+                                         output_channels=self.input_channels['input_main'])
             self.augment_transforms = {'input_main': lambda x: sim_gray.simulate(color_jitter(gauss_blur(x)))}
         else:
             self.augment_transforms = {'input_main': None}

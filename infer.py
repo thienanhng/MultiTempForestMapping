@@ -24,6 +24,26 @@ def infer(csv_fn,
           random_seed=0,
           num_workers=4):
     
+    """ 
+    - csv_fn: str, path to the csv file containing the list of input and target tiles to use
+    - model_fn: str, path to the trained model file
+    - output_dir: str, path to the directory where the output will be written
+    - main_input_source: str, name of the main input source
+    - aux_input_source: str, name of the auxiliary input source
+    - overwrite: bool, if True, the output directory will be overwritten if it already exists
+    - evaluate: bool, if True, the model will be evaluated using the target_tiles in csv_fn
+    - save_hard: bool, if True, the hard predictions will be saved
+    - save_soft: bool, if True, the soft predictions will be saved
+    - save_temp_diff: bool, if True, the temporal difference will be saved
+    - temp: if True, the model processes multi-temporal data, if False, each tile and acquisition year is processed 
+            independently
+    - batch_size: int, batch size
+    - patch_size: int, size of the patches to process, in pixels
+    - padding: int, padding to add to the input tiles and to each patch, in pixels. Avoids border effects.
+    - random_seed: int, random seed
+    - num_workers: int, number of workers for the dataloader
+    """
+    
     args_dict = {'csv_fn': csv_fn,
                  'model_fn': model_fn,
                  'output_dir': output_dir,
@@ -323,7 +343,7 @@ if __name__ == "__main__":
         evaluate=True, 
         save_hard=False,
         save_soft=False,
-        save_temp_diff=True,
+        save_temp_diff=False,
         temp=True,
         batch_size=512, #32, # does not matter if patch_size == tile_size
         patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation

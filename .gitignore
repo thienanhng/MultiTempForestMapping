@@ -150,6 +150,5 @@ tmp*/
 *.pdf
 !utils/SItemp100cm_1946_2020_means.npy
 !utils/SItemp100cm_1946_2020_stds.npy
-!output/Unet_SI2020_100cm_grayaugment_rs0/training/Unet_SI2020_100cm_grayaugment_rs0_model_epoch19.pt
 
 

@@ -1,5 +1,7 @@
+# launch a series of features extractor pre-training experiments
+
 import os
-from train import train, PythonArgs
+from train import train
 
 temp = False
 
@@ -27,7 +29,7 @@ patch_size = 128 # in meters
 lr_fe = 1e-4
 # each batch will containg patches extracted from batch_size/num_patches_per_tile different tiles. This impacts the
 # batch norm statistics.
-batch_size = 32 # 64 for frozen U-net
+batch_size = 32 
 update_period = 1
 bn_momentum = 0.1
 
@@ -36,7 +38,6 @@ augment_vals = True
 gauss_blur_sigma = 0.5
 color_jitter = 0.5
 grayscale_prob = 0.5
-std_gray_noise = 0.1
 
 # data pre-processing
 common_input_bands = None
@@ -58,44 +59,36 @@ for exp_name_base, common_input_bands, grayscale_prob in \
 
     for random_seed in range(5):
         exp_name = '{}_rs{}'.format(exp_name_base, random_seed)
-        # exp_name = 'debug'
         output_dir = os.path.join('output', exp_name)
         
-        # if os.path.exists(output_dir):
-        #     print('{} exists. Skipping it'.format(output_dir))
-        
-        # else:
-        if True:
-            print('Launching experiment {}'.format(exp_name))
+        print('Launching experiment {}'.format(exp_name))
 
-            args = PythonArgs(  output_dir=output_dir,
-                                main_input_source=main_input_source,
-                                aux_input_source=aux_input_source,
-                                train_csv_fn=train_csv_fn,
-                                val_csv_fn=val_csv_fn,
-                                temp=temp,
-                                num_epochs=num_epochs,
-                                random_seed=random_seed,
-                                model_arch=model_arch,
-                                undersample_training=undersample_training,
-                                undersample_validation=undersample_validation,
-                                num_patches_per_tile=num_patches_per_tile,
-                                n_negative_samples=n_negative_samples,
-                                negative_sampling_schedule=negative_sampling_schedule,
-                                batch_size=batch_size,
-                                patch_size=patch_size,
-                                lr_fe=lr_fe,
-                                bn_momentum=bn_momentum,
-                                update_period=update_period,
-                                augment_vals=augment_vals,
-                                gauss_blur_sigma=gauss_blur_sigma,
-                                color_jitter=color_jitter,
-                                grayscale_prob=grayscale_prob,
-                                std_gray_noise=std_gray_noise,
-                                common_input_bands=common_input_bands,
-                                num_workers_train=num_workers_train,
-                                num_workers_val=num_workers_val,
-                                debug=debug,
-                                no_user_input=no_user_input)
+        train(  output_dir=output_dir,
+                main_input_source=main_input_source,
+                aux_input_source=aux_input_source,
+                train_csv_fn=train_csv_fn,
+                val_csv_fn=val_csv_fn,
+                temp=temp,
+                num_epochs=num_epochs,
+                random_seed=random_seed,
+                model_arch=model_arch,
+                undersample_training=undersample_training,
+                undersample_validation=undersample_validation,
+                num_patches_per_tile=num_patches_per_tile,
+                n_negative_samples=n_negative_samples,
+                negative_sampling_schedule=negative_sampling_schedule,
+                batch_size=batch_size,
+                patch_size=patch_size,
+                lr_fe=lr_fe,
+                bn_momentum=bn_momentum,
+                update_period=update_period,
+                augment_vals=augment_vals,
+                gauss_blur_sigma=gauss_blur_sigma,
+                color_jitter=color_jitter,
+                grayscale_prob=grayscale_prob,
+                common_input_bands=common_input_bands,
+                num_workers_train=num_workers_train,
+                num_workers_val=num_workers_val,
+                debug=debug,
+                no_user_input=no_user_input)
 
-            train(args)

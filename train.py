@@ -44,7 +44,6 @@ def train(output_dir,
             gauss_blur_sigma=0.5,
             color_jitter=0.5,
             grayscale_prob=0.5,
-            std_gray_noise=0.1,
             lambda_temp=0.01,
             temp_loss='MSE',
             lambda_temp_align=0,
@@ -65,10 +64,69 @@ def train(output_dir,
     
     
     """ 
-        - freeze_matching_params: number of epochs for which, if a starting point is given for (part of) the model, the 
-            trainable parameters from the starting point will be frozen. 
-        - new_history: if a starting point is given, if new_history==True, a new the training history will be written. 
+        - output_dir: str, directory where the training history and the model will be saved
+        - main_input_source: str, name of the main input data source
+        - aux_input_source: str, name of the auxiliary input data source
+        - train_csv_fn: str, path to the csv file containing the training set input and target file names
+        - val_csv_fn: str, path to the csv file containing the validation set input and target file names
+        - temp: bool, if True, the model processes multi-temporal data, if False, each tile and acquisition year is processed 
+            independently
+        - num_epochs: int, number of training epochs
+        - random_seed: int, random seed
+        - new_history: bool, if a starting point is given, if new_history==True, a new the training history will be written. 
             If False, the training history will be appended to the existing one.
+        - starting_model_fn: str, path to the model file to start the training from (can be only part of the model)
+        - resume_training: bool, if True, the training will resume from the last epoch of the starting model
+        - freeze_matching_params: int, number of epochs for which, if a starting point is given for (part of) the model, the 
+            trainable parameters from the starting point will be frozen. 
+        - skip_validation: bool, if True, the validation will be skipped between each training epoch
+        - validation_period: int, number of training epochs between each validation
+        - model_arch: str, architecture of the model (Unet, NonRecurrentUnet, GRUUnet)
+        - undersample_training: float, factor by which the training set will be randomly undersampled. Set to 1 to use the 
+            whole training set
+        - undersample_validation: float, factor by which the validation set will be randomly undersampled. Set to 1 to use the
+            whole validation set
+        - num_patches_per_tile: int, number of patches to extract from each tile. Patches are picked at random locations.
+        - n_negative_samples: list of int, number of negative samples (i.e. containing no Forest pixels) to use for each epoch. This
+            reduces class imbalance. Should be a list of integers (see negative_sampling_schedule).
+        - negative_sampling_schedule: list of int, number of epochs for which each value in n_negative_samples will be used. Should 
+            be a list of integers of same length as n_negative_samples.
+        - batch_size: int, number of patches to process in parallel
+        - patch_size: int, size of the patches in pixels
+        - lr_fe: float, learning rate for updating the feature extractor parameters
+        - lr_temp: float, learning rate for updating the temporal module parameters
+        - update_period: int, number of batches after which the optimizer's state will be updated. Simulates batch size of 
+            update_period * batch_size, except for batchnorm layers.
+        - bn_momentum: float, momentum for the batch normalization layers
+        - augment_flip: bool, if True, the patches will be randomly flipped horizontally and vertically at training
+        - augment_vals: bool, if True, the patches will be randomly augmented with color jitter and Gaussian blur at training
+        - gauss_blur_sigma: float, standard deviation of the data augmentation Gaussian blur
+        - color_jitter: float, magnitude of the data augmentation color jitter
+        - grayscale_prob: float, probability of converting an image to grayscale, for data augmentation
+        - lambda_temp: float, weight of the generic temporal consistency loss (weight for the segmentation loss is always 1)
+        - temp_loss: str, type of temporal consistency loss ('MSE', 'CE', 'none')
+        - lambda_temp_align: float, weight of the domain-specific temporal alignment loss
+        - temp_align_loss: str, type of domain-specific temporal alignment loss ('CA', 'CA_ablation', 'none'). 'CA_ablation'
+            is the CA loss without the cosine loss term.
+        - scale_by_norm: bool, if True, the CA loss will be scaled by the norm of the input time series. Set to False for 
+            ablation.
+        - asym_align: bool, if True, the CA loss will be computed with the asymmetrical version i.e. scaling with the norm of 
+            the last time steps' gradients only . Set to False for ablation.
+        - weight_temp_loss: bool, if True, the temporal losses will be weighted by the time interval between consecutive 
+            acquisitions
+        - reverse: bool, if True, the input time series will be fed to the model in reverse order
+        - gru_irreg: bool, if True, the IrregGRU architecture will be used instead of the GRU architecture, meaning the reset 
+            and update gates will be scaled by the time interval.
+        - gru_kernel_size: int, size of the convolutional kernel for the GRU
+        - gru_init: str, initialization mode for the GRU ('last', 'average')
+        - gru_input: str, input mode for the GRU ('logits', 'df' for decoder logits of decoder features)
+        - common_input_bands: int, if not None, the input time series will be converted to the specified number of bands (1 for
+            grayscale, 3 for RGB)
+        - num_workers_train: int, number of workers for the training set data loader
+        - num_workers_val: int, number of workers for the validation set data loader
+        - debug: bool, if True, the training will be run in debug mode, with a reduced number of training and validation samples
+        - no_user_input: bool, if True, the function will not ask for user input to confirm the training process
+        
     """
     
     args_dict = locals().copy()
@@ -195,8 +253,7 @@ def train(output_dir,
                          augment_main_input=augment_vals,
                          jitter = color_jitter,
                          sigma_max = gauss_blur_sigma,
-                         grayscale_prob=grayscale_prob,
-                         std_gray_noise=std_gray_noise)
+                         grayscale_prob=grayscale_prob)
     
     save_dict = {
             'args': args_dict,
@@ -333,7 +390,7 @@ def train(output_dir,
     else:
         temp_criterion = None
     if temp_align_loss is not None:
-        if temp_align_loss == 'graddot':
+        if temp_align_loss == 'graddot' or temp_align_loss == 'CA': # for backward compatibility
             temp_align_criterion = MyGradDotTemporalLoss(device, 
                                     ignore_val=exp_utils.i_nodata_val, 
                                     seg_normalization=model.seg_normalization,
@@ -341,7 +398,7 @@ def train(output_dir,
                                     scale_by_norm=scale_by_norm,
                                     asymmetrical=asym_align)
             
-        elif temp_align_loss == 'gradnorm':
+        elif temp_align_loss == 'gradnorm' or temp_align_loss == 'CA_ablation': # for backward compatibility
             temp_align_criterion = MyGradNormTemporalLoss(device, 
                                                     ignore_val=exp_utils.i_nodata_val, 
                                                     seg_normalization=model.seg_normalization,
@@ -730,7 +787,7 @@ def train(output_dir,
 
 if __name__ == "__main__":
     
-    debug = True #
+    debug = True 
     # run parameters
     random_seed = 0
     if debug:
@@ -753,8 +810,8 @@ if __name__ == "__main__":
     common_input_bands = None
     
     # resource allocation
-    num_workers_train = 0 #8 
-    num_workers_val = 0 #4
+    num_workers_train = 8 
+    num_workers_val = 4
     
     # misc
     no_user_input = True
@@ -787,21 +844,20 @@ if __name__ == "__main__":
         lr_fe = 1e-5 
         lr_temp = 1e-3
         batch_size = 8 
-        update_period = 256 // batch_size # 64 // batch_size # simulate a larger batch size
-        bn_momentum = 1e-5 #0.001
+        update_period = 256 // batch_size # simulate a larger batch size
+        bn_momentum = 1e-5
         
         # data augmentation
         augment_vals = True 
         gauss_blur_sigma = 0.25
         color_jitter = 0.25
         grayscale_prob = 0
-        std_gray_noise = 0
         
         # loss
-        lambda_temp = 1. #1 # 20
-        temp_loss = 'CE' #'MSE' # 'none' #'graddot'
+        lambda_temp = 1. 
+        temp_loss = 'CE' #'MSE' # 'none' 
         lambda_temp_align = 1.
-        temp_align_loss = 'gradnorm' #'graddot'
+        temp_align_loss = 'CA' #'CA_ablation'
         scale_by_norm=True,
         asym_align = False
         weight_temp_loss = True
@@ -838,7 +894,6 @@ if __name__ == "__main__":
                 gauss_blur_sigma=gauss_blur_sigma,
                 color_jitter=color_jitter,
                 grayscale_prob=grayscale_prob,
-                std_gray_noise=std_gray_noise,
                 lambda_temp=lambda_temp,
                 temp_loss=temp_loss,
                 lambda_temp_align = lambda_temp_align,
@@ -890,7 +945,6 @@ if __name__ == "__main__":
         gauss_blur_sigma = 0.5
         color_jitter = 0.5
         grayscale_prob = 0.5
-        std_gray_noise = 0.1
         
         train(output_dir=output_dir,
                 main_input_source=main_input_source,
@@ -917,7 +971,6 @@ if __name__ == "__main__":
                 gauss_blur_sigma=gauss_blur_sigma,
                 color_jitter=color_jitter,
                 grayscale_prob=grayscale_prob,
-                std_gray_noise=std_gray_noise,
                 common_input_bands=common_input_bands,
                 num_workers_train=num_workers_train,
                 num_workers_val=num_workers_val,
