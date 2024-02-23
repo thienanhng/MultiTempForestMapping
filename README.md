@@ -1,5 +1,7 @@
 # MultiTempForestMapping
-Multi-temporal forest monitoring in the Swiss Alps with knowledge-guided deep learning. In construction.
+Multi-temporal forest monitoring in the Swiss Alps with knowledge-guided deep learning (under review).
+
+Download links to target and evaluation data, and trained model weights will be added soon.
 
 Input SwissImage aerial imagery 
 - [1946](https://www.swisstopo.admin.ch/en/orthoimage-swissimage-hist-1946) (not open access to this day)
