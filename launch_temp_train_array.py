@@ -55,8 +55,6 @@ temp_align_loss = 'gradnorm' #'graddot'
 scale_by_norm = True
 asym_align = True
 weight_temp_loss = True
-bootstrap_beta = 0.0 # 0.5
-bootstrap_threshold = 1.0 #0.5 #1 #0.75
 
 # temporal model
 reverse = True
@@ -76,24 +74,6 @@ num_workers_val = 4
 no_user_input = True
 debug=False
 
-
-# for lambda_temp in [20, 10]:
-#     for freeze_matching_params in [0, 5, num_epochs]:
-# for gru_irreg in [True, False]:
-# for bootstrap_beta, bootstrap_threshold in [(0., 1.), (0.25, 0.75)]:
-# for lr_fe, lr_temp, lambda_temp, temp_loss, lambda_temp_align, temp_align_loss, random_seed in [
-#                                                             (1e-6, 1e-4, 2, 'CE', 0., 'none', 2), 
-#                                                             (1e-6, 1e-4, 20, 'MSE', 0., 'none', 2),
-#                                                             (1e-6, 1e-4, 1., 'CE', 1., 'graddot', 2), 
-#                                                             (1e-6, 1e-4, 10, 'MSE', 1., 'graddot', 2),
-#                                                             ]: 
-
-# for temp_loss, temp_align_loss, lambda_temp, lambda_temp_align, asym_align in [
-#     ('CE', 'graddot', 1.0, 1.0, True),
-#     ('CE', 'graddot', 1.0, 1.0, False),
-#     ('CE', 'none', 2.0, 0.0, False),
-#     ('MSE', 'graddot', 1.0, 1.0, False)]:
-    
 for random_seed in range(5):
     if model_arch == 'GRUUnet':
         if gru_irreg:
@@ -178,8 +158,6 @@ for random_seed in range(5):
                             scale_by_norm=scale_by_norm,
                             asym_align=asym_align,
                             weight_temp_loss=weight_temp_loss,
-                            bootstrap_beta=bootstrap_beta,
-                            bootstrap_threshold=bootstrap_threshold,
                             reverse=reverse,
                             gru_irreg=gru_irreg,
                             gru_kernel_size=gru_kernel_size,

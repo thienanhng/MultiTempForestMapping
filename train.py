@@ -53,8 +53,6 @@ def train(output_dir,
             scale_by_norm=True, # for ablation study
             asym_align=False, # for ablation study
             weight_temp_loss=True,
-            bootstrap_beta = 0,
-            bootstrap_threshold = 0.5,
             reverse=False,
             gru_irreg=True,
             gru_kernel_size=7,
@@ -354,9 +352,7 @@ def train(output_dir,
         if temp_loss == 'MSE':
             temp_criterion = MyTemporalMSELoss(ignore_val=exp_utils.i_nodata_val, 
                                                 seg_normalization=model.seg_normalization,
-                                                use_temp_weights=weight_temp_loss,
-                                                bootstrap_beta = bootstrap_beta,
-                                                bootstrap_threshold = bootstrap_threshold)
+                                                use_temp_weights=weight_temp_loss)
         elif temp_loss == 'CE':
             if exp_utils.n_classes == 2:
                 tempCE_seg_criterion = MyBCELoss(ignore_val=None)
@@ -377,8 +373,6 @@ def train(output_dir,
                                     ignore_val=exp_utils.i_nodata_val, 
                                     seg_normalization=model.seg_normalization,
                                     use_temp_weights=weight_temp_loss,
-                                    bootstrap_beta = bootstrap_beta,
-                                    bootstrap_threshold = bootstrap_threshold,
                                     scale_by_norm=scale_by_norm,
                                     asymmetrical=asym_align)
             
@@ -386,9 +380,7 @@ def train(output_dir,
             temp_align_criterion = MyGradNormTemporalLoss(device, 
                                                     ignore_val=exp_utils.i_nodata_val, 
                                                     seg_normalization=model.seg_normalization,
-                                                    use_temp_weights=weight_temp_loss,
-                                                    bootstrap_beta = bootstrap_beta,
-                                                    bootstrap_threshold = bootstrap_threshold)
+                                                    use_temp_weights=weight_temp_loss)
         else:
             raise NotImplementedError('{} for temporal alignment loss not implemented'.format(temp_loss))
     else:
@@ -850,8 +842,6 @@ if __name__ == "__main__":
         scale_by_norm=True,
         asym_align = False
         weight_temp_loss = True
-        bootstrap_beta = 0.
-        bootstrap_threshold = 1
         
         # temporal model
         reverse = True
@@ -895,8 +885,6 @@ if __name__ == "__main__":
                 scale_by_norm=scale_by_norm,
                 asym_align=asym_align,
                 weight_temp_loss=weight_temp_loss,
-                bootstrap_beta=bootstrap_beta,
-                bootstrap_threshold=bootstrap_threshold,
                 reverse=reverse,
                 gru_irreg=gru_irreg,
                 gru_kernel_size=gru_kernel_size,

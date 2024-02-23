@@ -140,7 +140,7 @@ dmypy.json
 .history/
 
 # Others
-output/
+output/*
 *.onnx
 log*.txt
 memory_profiler.log

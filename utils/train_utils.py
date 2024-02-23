@@ -126,7 +126,7 @@ def fit_temp(model,
         total_weight = total_weight + 1.
         
         if temp_criterion is not None:
-            temp_loss, r_bootstrap = temp_criterion(final_actv, years)
+            temp_loss = temp_criterion(final_actv, years)
             total_loss = total_loss + lambda_temp * temp_loss
             total_weight = total_weight + lambda_temp
             
@@ -247,18 +247,10 @@ class MyTemporalConsistencyLoss(nn.Module):
     def __init__(self, 
                  ignore_val=255, 
                  seg_normalization=None, 
-                 use_temp_weights=False, 
-                 bootstrap_beta=0,
-                 bootstrap_threshold=0.5):
-        """ 
-        beta: beta parameter for bootstrapping (inspired by 
-            "Training Deep Neural Networks on Noisy Labels with Bootstrapping", Reed et al., 
-            https://arxiv.org/abs/1412.6596)
-        """
+                 use_temp_weights=False):
+
         super().__init__()
         self.ignore_val = ignore_val 
-        self.bootstrap_beta = bootstrap_beta
-        self.bootstrap_threshold = bootstrap_threshold
         
         if seg_normalization is None:
             self.seg_normalization = nn.Softmax(dim = 1) 
@@ -297,18 +289,7 @@ class MyTemporalConsistencyLoss(nn.Module):
     def compute_loss(self, pred, years=None, weights=None, return_per_year=False):
         # dimensions can be (batch, time, h, w) or (batch, class, time, h, w)
         pred_t0, pred_t1 = pred[..., :-1, :, :], pred[..., 1:, :, :] # there should be no time gaps in the predictions
-        if self.bootstrap_beta > 0 and self.bootstrap_threshold < 1: 
-            pseudo_labels = torch.clone(pred_t0)
-            diff = pred_t0 - pred_t1
-            # bootstrap when forest loss is detected
-            mask = diff > self.bootstrap_threshold
-            r_bootstrap = torch.mean(mask.float()) # ratio of bootstrapped pixels
-            if torch.any(mask):
-                pseudo_labels[mask] = self.bootstrap_beta * pred_t1[mask] + (1-self.bootstrap_beta) * pred_t0[mask]
-            per_year_loss = self.compute_loss_terms(pseudo_labels, pred_t1)
-        else:
-            r_bootstrap = 0
-            per_year_loss = self.compute_loss_terms(pred_t0, pred_t1)
+        per_year_loss = self.compute_loss_terms(pred_t0, pred_t1)
         loss, weights = self.temp_average(per_year_loss, weights, years)
         avg_loss = torch.mean(loss, dim=0)
         if return_per_year:
@@ -319,17 +300,17 @@ class MyTemporalConsistencyLoss(nn.Module):
             avg_per_year_loss = {}
             for y in unique_years:
                 avg_per_year_loss[y.item()] = torch.mean(per_year_loss[years_after == y]).detach().cpu()
-            return (avg_loss, avg_per_year_loss), weights, r_bootstrap
+            return (avg_loss, avg_per_year_loss), weights
         else:
-            return avg_loss, weights, r_bootstrap
+            return avg_loss, weights
     
     def forward(self, pred, years=None, return_per_year=False):
         """
         When 'years' is None the loss is not reduced
         """
         pred = self.seg_normalization(pred) # batch_size x n_classes x n_t x h x w
-        loss, weights, r_bootstrap = self.compute_loss(pred, years=years, return_per_year=return_per_year)
-        return loss, r_bootstrap               
+        loss, _ = self.compute_loss(pred, years=years, return_per_year=return_per_year)
+        return loss               
 
     
 class MyTemporalMSELoss(MyTemporalConsistencyLoss):
