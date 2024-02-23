@@ -60,7 +60,6 @@ weight_temp_loss = True
 reverse = True
 gru_irreg = True
 gru_kernel_size = 7
-gru_input = 'df'
 gru_norm_dt = True and gru_irreg
 
 # data pre-processing
@@ -98,10 +97,9 @@ for random_seed in range(5):
                 temp_loss_name = '_'.join([temp_loss, temp_align_loss])
         lambda_temp_name = '_'.join([str(lambda_temp), str(lambda_temp_align)])
 
-    exp_name = '{}{}{}_{}_freeze{}_lrfe{}_lrtemp{}_tloss{}_ltemp{}_rs{}'.format(
+    exp_name = '{}{}_{}_freeze{}_lrfe{}_lrtemp{}_tloss{}_ltemp{}_rs{}'.format(
                                 model_arch_name,
                                 gru_kernel_size,
-                                gru_input,
                                 'bwrd' if reverse else 'fwrd',
                                 freeze_matching_params,
                                 lr_fe,
@@ -161,7 +159,6 @@ for random_seed in range(5):
                             reverse=reverse,
                             gru_irreg=gru_irreg,
                             gru_kernel_size=gru_kernel_size,
-                            gru_input=gru_input,
                             gru_norm_dt=gru_norm_dt,
                             common_input_bands=common_input_bands,
                             num_workers_train=num_workers_train,

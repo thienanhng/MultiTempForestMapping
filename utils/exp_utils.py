@@ -120,7 +120,6 @@ class ExpUtils:
                  aux_input_datasource=None, 
                  multitemp_eval=True,
                  common_input_bands=None, 
-                 normalize_temp_inputs='per_year', 
                  augment_main_input=True,
                  jitter=0.1, 
                  sigma_max=0.3, 
@@ -198,12 +197,6 @@ class ExpUtils:
                                             }
         
         self.target_conversion_table = {k: TARGET_CONVERSION_TABLE[source] for k, source in target_datasources.items()}
-        
-        if normalize_temp_inputs is not None:
-            if normalize_temp_inputs not in ['per_year', 'naive']:
-                raise ValueError('Argument "normalize_temp_inputs" should be one of ("per_year", "naive"), but "{}" was '
-                                'provided'.format(normalize_temp_inputs))
-        self.normalize_temp_inputs = normalize_temp_inputs
         
         # setup task(s)
 
@@ -293,53 +286,47 @@ class ExpUtils:
         Number of channels should be the last dimension for the broadcasting to work.
         A nodata mask must be computed before this function, and use to avoid backpropagating loss on nodata pixels.
         """
-        if self.normalize_temp_inputs == 'per_year':
-            if year_list is None:
-                raise RuntimeError('Argument "year_list" is necessary to normalize data per acquisition year')
-            else:
-                for i, (year, data) in enumerate(zip(year_list,img_list)):
-                    data = torch.from_numpy(data).float()
-                    try: # year for which statistics are available on a subset of the dataset only
-                        mean_year_loc, mean_ref_loc = self.input_means[input_name][year]
-                        std_year_loc, std_ref_loc = self.input_stds[input_name][year]
+        if year_list is None:
+            raise RuntimeError('Argument "year_list" is necessary to normalize data per acquisition year')
+        else:
+            for i, (year, data) in enumerate(zip(year_list,img_list)):
+                data = torch.from_numpy(data).float()
+                try: # year for which statistics are available on a subset of the dataset only
+                    mean_year_loc, mean_ref_loc = self.input_means[input_name][year]
+                    std_year_loc, std_ref_loc = self.input_stds[input_name][year]
+                    # this always gives as many bands as in the ref year
+                    data = ((data - mean_year_loc) / std_year_loc * std_ref_loc + mean_ref_loc - self.input_mean_ref) \
+                            / self.input_std_ref
+                except ValueError: # year for which the dataset-wide statistics are available
+                    mean_year = self.input_means[input_name][year]
+                    std_year = self.input_stds[input_name][year]
+                    data = (data - mean_year) / std_year
+                except KeyError:
+                    if year == self.ref_year:
+                        data = (data - self.input_mean_ref) / self.input_std_ref
+                    else:
+                        # find closest acquisition year
+                        year_diff = [abs(int(y) - int(year)) for y in self.input_means[input_name].keys()]
+                        idx_closest_year = np.argmin(year_diff)
+                        closest_year = list(self.input_means[input_name].keys())[idx_closest_year]
+                        
+                        mean_year_loc, mean_ref_loc = self.input_means[input_name][closest_year]
+                        std_year_loc, std_ref_loc = self.input_stds[input_name][closest_year]
                         # this always gives as many bands as in the ref year
                         data = ((data - mean_year_loc) / std_year_loc * std_ref_loc + mean_ref_loc - self.input_mean_ref) \
                                 / self.input_std_ref
-                    except ValueError: # year for which the dataset-wide statistics are available
-                        mean_year = self.input_means[input_name][year]
-                        std_year = self.input_stds[input_name][year]
-                        data = (data - mean_year) / std_year
-                    except KeyError:
-                        if year == self.ref_year:
-                            data = (data - self.input_mean_ref) / self.input_std_ref
-                        else:
-                            # find closest acquisition year
-                            year_diff = [abs(int(y) - int(year)) for y in self.input_means[input_name].keys()]
-                            idx_closest_year = np.argmin(year_diff)
-                            closest_year = list(self.input_means[input_name].keys())[idx_closest_year]
-                            
-                            mean_year_loc, mean_ref_loc = self.input_means[input_name][closest_year]
-                            std_year_loc, std_ref_loc = self.input_stds[input_name][closest_year]
-                            # this always gives as many bands as in the ref year
-                            data = ((data - mean_year_loc) / std_year_loc * std_ref_loc + mean_ref_loc - self.input_mean_ref) \
-                                    / self.input_std_ref
-                            print('Warning: Data mean and std not found for year {}, using year {} instead'.format(year, closest_year))
-                    if self.common_input_bands is not None:
-                        if self.common_input_bands == data.shape[-1]:
-                            continue
-                        elif self.common_input_bands == 1:
-                            data = torch.mean(data, dim=-1, keepdim=True)
-                        else:
-                            raise NotImplementedError
-                    
+                        print('Warning: Data mean and std not found for year {}, using year {} instead'.format(year, closest_year))
+                if self.common_input_bands is not None:
+                    if self.common_input_bands == data.shape[-1]:
+                        continue
+                    elif self.common_input_bands == 1:
+                        data = torch.mean(data, dim=-1, keepdim=True)
+                    else:
+                        raise NotImplementedError
+                
 
-                    img_list[i] = torch.movedim(data.float(), (2, 0, 1), (0, 1, 2))
-                        
-        elif self.normalize_temp_inputs == 'naive': 
-            for i, data in enumerate(img_list):
-                data = torch.from_numpy(data).float()
-                data = (data - self.input_mean_ref) / self.input_std_ref
                 img_list[i] = torch.movedim(data.float(), (2, 0, 1), (0, 1, 2))
+
         return img_list
 
     def preprocess_static_inputs(self, img_dict, mode='eval'):

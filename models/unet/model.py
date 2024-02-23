@@ -165,7 +165,12 @@ class NonRecurrentUnet(Module):
 
      
 class GRUUnet(Module):
-    """ Applies a Unet to each time stamp, and feeds the obtained Unet output/features to a ConvGRU """
+    """ Applies a Unet to each time stamp, and feeds the obtained Unet output/features to a ConvGRU 
+        - gru_input: what will be used as input to the GRU. 'logits' (decoder output logits) or 'df' (decoder features)
+        - gru_init: initialization mode of the conv layers.
+            - 'last' approximates  h_t = h_hat_t
+            - 'average' approximates h_t = 0.5 * h_t-1 + 0.5 * h_hat_t
+    """
     def __init__(self,
             encoder_depth: int=4,
             decoder_channels: List[int]=(256, 128, 64, 32, 16),
@@ -178,7 +183,7 @@ class GRUUnet(Module):
             in_out_scale: List[int]=1,
             bn_momentum=0.1,
             gru_irreg=False,
-            gru_input: str='logits',
+            gru_input: str='df',
             gru_reset_channels: int=1,
             gru_update_channels: int=1,
             gru_kernel_size: int=3,

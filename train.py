@@ -61,7 +61,6 @@ def train(output_dir,
             gru_input='df',
             gru_norm_dt=False,
             common_input_bands=None, 
-            normalize_temp_inputs='per_year',
             num_workers_train=8,
             num_workers_val=4,
             debug=False,
@@ -192,7 +191,6 @@ def train(output_dir,
                          jitter = color_jitter,
                          sigma_max = gauss_blur_sigma,
                          grayscale_prob=grayscale_prob,
-                         normalize_temp_inputs=normalize_temp_inputs,
                          std_gray_noise=std_gray_noise)
     
     save_dict = {

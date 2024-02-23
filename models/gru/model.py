@@ -4,7 +4,9 @@ from torch.nn import Module
 from copy import deepcopy
 
 class GRU(Module):
-    """Convolutional Gated Recurrent Unit"""
+    """
+    Convolutional Gated Recurrent Unit
+    """
     def __init__(self, 
                  in_channels: int=1,
                  reset_channels: int=1,
@@ -63,7 +65,7 @@ class GRU(Module):
                             padding=padding,
                             bias=bias) 
             
-    def initialize(self, init_mode='last', input_mode='logits'):        
+    def initialize(self, init_mode='last', input_mode='df'):  
         std = 1e-3    
         nn.init.normal_(self.Wz.weight,  mean=0, std=std) # to initialize z as 1s
         nn.init.normal_(self.Uz.weight,  mean=0, std=std) # to initialize z as 1s

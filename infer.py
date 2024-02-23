@@ -21,7 +21,6 @@ def infer(csv_fn,
           batch_size=4,
           patch_size=256,
           padding=64,
-          normalize_temp_inputs='per_year',
           random_seed=0,
           num_workers=4):
     
@@ -34,7 +33,6 @@ def infer(csv_fn,
                  'batch_size': batch_size,
                  'patch_size': patch_size,
                  'padding': padding,
-                 'normalize_temp_inputs': normalize_temp_inputs,
                  'random_seed': random_seed,
                  'num_workers': num_workers}
 
@@ -160,8 +158,7 @@ def infer(csv_fn,
     exp_utils = ExpUtils(main_input_source, 
                          aux_input_source,
                          multitemp_eval=temp,
-                        common_input_bands=common_input_bands,
-                        normalize_temp_inputs=normalize_temp_inputs)
+                        common_input_bands=common_input_bands)
 
     ############ Setup model ###############
     
@@ -339,7 +336,6 @@ if __name__ == "__main__":
         batch_size=512, #32, # does not matter if patch_size == tile_size
         patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation
         padding=padding,
-        normalize_temp_inputs='per_year',
         random_seed=0,
         num_workers=4
         )
