@@ -1,6 +1,6 @@
 import os
 import torch
-from models import Unet, RecurrentUnet, NonRecurrentUnet
+from models import Unet, NonRecurrentUnet
 from models.unet.model import GRUUnet
 import utils
 from utils import ExpUtils
@@ -81,8 +81,8 @@ def infer(csv_fn,
         model_arch = model_obj['model_params']['model_arch']
     except KeyError:
         if temp:
-            print('Model architecture information was not found. We will try to load the parameters to a RecurrentUnet.')
-            model_arch = 'RecurrentUnet'
+            print('Model architecture information was not found. We will try to load the parameters to a NonRecurrentUnet.')
+            model_arch = 'NonRecurrentUnet'
         else:
             model_arch = 'Unet'
     try:
@@ -173,22 +173,7 @@ def infer(csv_fn,
     init_stride = [1, 1] # to keep the same spatial resolution as the input
     # Create model
     if temp:
-        if model_arch == 'RecurrentUnet':
-            print('Using a RecurrentUnet')
-            model = RecurrentUnet(encoder_depth=4, 
-                        decoder_channels=decoder_channels,
-                        in_channels = exp_utils.input_channels['input_main'], 
-                        out_channels = exp_utils.output_channels,
-                        upsample = upsample,
-                        aux_in_channels = aux_in_channels,
-                        init_stride=init_stride,
-                        reverse=reverse,
-                        rec_init=rec_init,
-                        temp_loop=temp_loop,
-                        rec_features_norm=rec_features_norm,
-                        rec_features_clamp=rec_features_clamp,
-                        rec_features_clamp_val=3)  
-        elif model_arch == 'GRUUnet':
+        if model_arch == 'GRUUnet':
             print('Using a GRUUnet')
             model = GRUUnet(encoder_depth=4, 
                         decoder_channels=decoder_channels,

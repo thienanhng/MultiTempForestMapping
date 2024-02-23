@@ -1,1 +1,1 @@
-from .model import Unet, RecurrentUnet, GRUUnet, NonRecurrentUnet
+from .model import Unet, GRUUnet, NonRecurrentUnet

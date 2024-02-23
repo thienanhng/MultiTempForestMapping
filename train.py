@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from dataset import TrainingDataset, TempTrainingDataset, collate_variable_length_series
-from models import Unet, RecurrentUnet, GRUUnet, NonRecurrentUnet
+from models import Unet, GRUUnet, NonRecurrentUnet
 import utils
 from utils import ExpUtils
 from utils.train_utils import MyBCELoss, MyBCEWithLogitsLoss, MyTemporalMSELoss, MyGradDotTemporalLoss, \
@@ -140,9 +140,9 @@ def train(output_dir,
         lambda_temp_align = 0.
              
     if temp:
-        if model_arch not in ['RecurrentUnet', 'GRUUnet', 'NonRecurrentUnet']:
-            print('Warning: no valid model architecture has been specified, we will use a RecurrentUnet.')
-            model_arch = 'RecurrentUnet'
+        if model_arch not in ['GRUUnet', 'NonRecurrentUnet']:
+            print('Warning: no valid model architecture has been specified, we will use a NonRecurrentUnet.')
+            model_arch = 'NonRecurrentUnet'
         if common_input_bands is not None:
             if common_input_bands == 1:
                 print('Converting all input time series to grayscale')
@@ -259,19 +259,7 @@ def train(output_dir,
             pass
             
     if temp:
-        if model_arch == 'RecurrentUnet':
-            print('Training a RecurrentUnet')
-            model = RecurrentUnet(
-                        encoder_depth=4, 
-                        decoder_channels=decoder_channels,
-                        in_channels=exp_utils.input_channels['input_main'], 
-                        out_channels=exp_utils.output_channels,
-                        upsample=upsample,
-                        aux_in_channels=aux_in_channels,
-                        init_stride=init_stride,
-                        bn_momentum=bn_momentum,
-                        reverse=reverse)
-        elif model_arch == 'GRUUnet':
+        if model_arch == 'GRUUnet':
             print('Training a GRUUnet')
             if not gru_irreg:
                 gru_norm_dt = False # just for clarity
@@ -373,7 +361,7 @@ def train(output_dir,
     else:
         temp_align_criterion = None
 
-    if isinstance(model, (Unet, RecurrentUnet, NonRecurrentUnet)):
+    if isinstance(model, (Unet, NonRecurrentUnet)):
         optimizer = optim.AdamW(model.parameters(), lr=lr_fe, amsgrad=True)
     else:
         optimizer = optim.AdamW([
@@ -395,7 +383,7 @@ def train(output_dir,
     # load checkpoints if resuming training from existing model
     if resume_training:
         try:
-            if isinstance(model, (NonRecurrentUnet, RecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
+            if isinstance(model, (NonRecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
                 try:
                     model.unet.load_state_dict(starting_point['model']) 
                 except RuntimeError:
@@ -405,7 +393,7 @@ def train(output_dir,
                 
         except RuntimeError:
             pretrained_model_dict =  starting_point['model']
-            if isinstance(model, (NonRecurrentUnet, RecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
+            if isinstance(model, (NonRecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
                 new_model_dict = model.unet.state_dict()
             else:
                 new_model_dict = model.state_dict()
@@ -447,14 +435,14 @@ def train(output_dir,
             new_model_dict.update(common_dict) 
             
             # load the new state dict
-            if isinstance(model, (NonRecurrentUnet, RecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
+            if isinstance(model, (NonRecurrentUnet, GRUUnet)) and starting_model_fn is not None: 
                 model.unet.load_state_dict(new_model_dict) 
             else:
                 model.load_state_dict(new_model_dict)
             
             if freeze_matching_params > 0:
                 
-                if isinstance(model, (NonRecurrentUnet, RecurrentUnet, GRUUnet)) and starting_model_fn is not None:
+                if isinstance(model, (NonRecurrentUnet, GRUUnet)) and starting_model_fn is not None:
                     print('For the first {} epochs, only parameters {} in the Unet will be trained.'.format(
                                                                                         freeze_matching_params, 
                                                                                         mismatch_param_names))
@@ -469,7 +457,7 @@ def train(output_dir,
                         if name not in mismatch_param_names:
                             p.requires_grad = False
         else:
-            if isinstance(model, (NonRecurrentUnet, RecurrentUnet, GRUUnet)) \
+            if isinstance(model, (NonRecurrentUnet, GRUUnet)) \
             and starting_model_fn is not None \
             and freeze_matching_params > 0:
                 print('For the first {} epochs, the parameters of the Unet will be frozen.'.format(
