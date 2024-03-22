@@ -280,63 +280,18 @@ def infer(csv_fn,
 #################################################################################################################
 
 if __name__ == "__main__":
-    
-    use_all_seeds = False
-    
-    # proposed model
-    # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs1']
-    # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0'] 
-    
-    # ConvGRU v.s. IrregCongGRU
-    # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs1',
-    #                  'GRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs0',
-    #                 ]
-    
-    # exp_name_list = ['GRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0',
-    #                 'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0']
-    
-    # compare loss functions
-    # exp_name_list = [#'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossMSE_ltemp2_0_rs2',
-    #          'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_ltemp2_0_rs2',
-    #          #'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossnone_asymgraddot_ltemp0_0_2_0_rs2',
-    #             'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossMSE_asymgraddot_ltemp1_0_1_0_rs4',
-    #             'NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs1'
-    #             ]
-    # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossMSE_ltemp2_0_rs2']
-    
-    # compare pre-trained mono-temporal feature extractors
-    # exp_name_list = [
-    #                 'Unet_SI2020_100cm_grayaugment',
-    #                 # 'Unet_SI2020_100cm_noaugment',
-    #                 # 'Unet_SI2020gray_100cm'
-    #                  ]
-    exp_name_list = [
-                    'Unet_SI2020_100cm_grayaugment_rs0' ]
-    
-    # Non Recurrent Unet with multi-temporal fine-tuning
-    # exp_name_list = ['NRUnet7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0']
-    # exp_name_list = ['NRUnet7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgraddot_ltemp1_0_1_0_rs2']
-    
-    # ablation
-    # exp_name_list = ['NIrregGRU7df_bwrd_freeze0_lrfe1em06_lrtemp0_0001_tlossCE_asymgradnorm_ltemp1_0_1_0'] 
-    
-    if use_all_seeds:
-        new_exp_name_list = []
-        for exp_name in exp_name_list:
-            new_exp_name_list += ['{}_rs{}'.format(exp_name, rs) for rs in range(5)]
-        exp_name_list = new_exp_name_list
+        
+    exp_name = 'Unet_IrregConvGRU_tCE_tCA_randseed0'
+    model_fn = ['trainedModels/{}_model.pt'.format(exp_name)]
                         
     data_set = 'mylabels_test' 
-    epoch = 19 #39 
-    end_year = 2020
+    epoch = 39 
     padding = 64  #0 for evaluation, 64 for vizualisation
         
-    for exp_name in exp_name_list:
-        infer(
-            csv_fn='data/csv/SItemp100cm_1946_to_{}_ALTI100cm_TLM6c_multitemp_{}.csv'.format(end_year,
-                                                                                        data_set),
-        model_fn = 'output/{0}/training/{0}_model_epoch{1}.pt'.format(exp_name, epoch),
-        output_dir='output/{}/inference/epoch_{}/{}_debug'.format(exp_name, epoch, data_set),
+    infer(
+        csv_fn='data/csv/SItemp100cm_1946_to_2020_ALTI100cm_TLM6c_multitemp_{}.csv'.format(data_set),
+        model_fn = model_fn,
+        output_dir='output/{}/inference/epoch_{}/{}'.format(exp_name, epoch, data_set),
         main_input_source = 'SItemp',
         aux_input_source = 'ALTI',
         overwrite=True,
@@ -345,8 +300,8 @@ if __name__ == "__main__":
         save_soft=False,
         save_temp_diff=False,
         temp=True,
-        batch_size=512, #32, # does not matter if patch_size == tile_size
-        patch_size=256, #256, 256 - 2*32 = 192, 1000/4 + 2 * 64 = 378, 1000 for evaluation, 256 for vizualisation
+        batch_size=512, # does not matter if patch_size == tile_size
+        patch_size=256, # 1000 for evaluation, 256 for vizualisation
         padding=padding,
         random_seed=0,
         num_workers=4

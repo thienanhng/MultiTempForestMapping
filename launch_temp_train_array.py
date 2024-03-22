@@ -13,11 +13,18 @@ train_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_train_with_counts.csv'.format(
                                                                                 aux_input_source)
 val_csv_fn = 'data/csv/{}_1946_to_2020_{}_TLM6c_multitemp_mylabels_val.csv'.format(main_input_source, 
                                                                                     aux_input_source)
+
+# define pre-trained feature extractor. Choose the correct block of code below
+# if trained locally, uncomment following lines
 starting_model_name = 'Unet_SI2020_100cm_grayaugment_rs0'
 starting_model_fn =  os.path.join('output', 
                                     starting_model_name, 
                                     'training', 
                                     '{}_model.pt'.format(starting_model_name))
+# if downloaded from the cloud, uncomment following lines
+# starting_model_name = 'Unet_randseed0'
+# starting_model_fn =  os.path.join('trainedModels', '{}_model.pt'.format(starting_model_name))
+
 resume_training = True 
 model_arch = 'GRUUnet' 
 random_seed = 0
