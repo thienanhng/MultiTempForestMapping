@@ -1,8 +1,6 @@
 # MultiTempForestMapping
 Paper: [Multi-temporal forest monitoring in the Swiss Alps with knowledge-guided deep learning, Thiên-Anh Nguyen, Marc Rußwurm, Gaston Lenczner, Devis Tuia, Remote sensing of environment, 2024](https://www.sciencedirect.com/science/article/pii/S0034425724001202)
 
-Download links to trained model weights will be added soon.
-
 # Dataset
 **Input data**
 - SwissImage aerial imagery 
@@ -15,8 +13,14 @@ Download links to trained model weights will be added soon.
 
 **Evaluation labels**: manually annotated tiles from random locations and dates (1946 to 2020) ([download](https://drive.google.com/file/d/1BOsuv77L9bJnJMQWAD01yjeJMcVAu6VZ/view?usp=sharing)) 
 
+# Trained models
+
+Download trained models [here](https://drive.google.com/file/d/1RPdPxcpn2PXkCBMC60G0bONQlx1xgRfA/view?usp=sharing)
+
 # Results
 
 [Download results](https://drive.google.com/drive/folders/1n1L6eOGtaUn39364ji5LQELafB7yfgFJ?usp=sharing)
 
 [View results with Google Earth Engine](https://temp-forest-mapping.projects.earthengine.app/view/multitempforestmap) (loading can be slow)
+
+
