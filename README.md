@@ -19,8 +19,8 @@ Download trained models [here](https://drive.google.com/file/d/1RPdPxcpn2PXkCBMC
 
 # Results
 
-[Download results](https://drive.google.com/drive/folders/1n1L6eOGtaUn39364ji5LQELafB7yfgFJ?usp=sharing)
+[Download results](https://drive.google.com/drive/folders/1isRYaBt6GJT0NkXpsEWCSQtV8wgbDgEy?usp=sharing)
 
-[View results with Google Earth Engine](https://temp-forest-mapping.projects.earthengine.app/view/multitempforestmap) (loading can be slow)
+[View results with Google Earth Engine](https://temp-forest-mapping.projects.earthengine.app/view/multitempforestmap)
 
 
