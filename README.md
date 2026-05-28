@@ -41,5 +41,7 @@ Download trained models [here](https://drive.google.com/file/d/1RPdPxcpn2PXkCBMC
 [Download results](https://drive.google.com/drive/folders/1isRYaBt6GJT0NkXpsEWCSQtV8wgbDgEy?usp=sharing)
 
 [View results with Google Earth Engine](https://temp-forest-mapping.projects.earthengine.app/view/multitempforestmap)
+<img width="1157" height="787" alt="gee_screenshot" src="https://github.com/user-attachments/assets/686c99d1-bda6-4735-bc89-60d0ed89a52c" />
+
 
 
