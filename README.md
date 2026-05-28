@@ -1,5 +1,24 @@
 # MultiTempForestMapping
-Paper: [Multi-temporal forest monitoring in the Swiss Alps with knowledge-guided deep learning, Thiên-Anh Nguyen, Marc Rußwurm, Gaston Lenczner, Devis Tuia, Remote sensing of environment, 2024](https://www.sciencedirect.com/science/article/pii/S0034425724001202)
+
+This repository corresponds to the paper [Multi-temporal forest monitoring in the Swiss Alps with knowledge-guided deep learning, Thiên-Anh Nguyen, Marc Rußwurm, Gaston Lenczner, Devis Tuia, Remote sensing of environment, 2024](https://www.sciencedirect.com/science/article/pii/S0034425724001202)
+
+The goal is to segment forest cover from time series of aerial images and a Digital Elevation Model (DEM), with forest cover annotations available for the most recent images only. 
+
+# Method
+
+The model is first pre-trained in a fully supervised manner using the most recent images, the DEM and their corresponding forest cover labels:
+
+<img width="590" height="83" alt="overall_model_diagram_pretrain_white_background" src="https://github.com/user-attachments/assets/cf6af165-5c0f-4052-85b5-2d25aacd531b" />
+
+
+The pre-trained feature extractor is then combined with a temporal module (a customized GRU) in a multi-temporal framework. A temporal loss comparing subsequent predictions is used in combination with the supervised segmentation loss to train this model:
+
+<img width="590" height="489.17" alt="overall_model_diagram_white_background" src="https://github.com/user-attachments/assets/338ee1bd-b456-4874-bd54-62a7c34cb57e" />
+
+The temporal loss is based on common sense knowledge about forest loss and gain dynamics (see paper for mathematical formulation). The following figure illustrates how different scenarios of pairs subsequent forest cover predictions (green areas) affect the loss value:
+
+<img width="1942" height="1424" alt="lca_intuition_white_background" src="https://github.com/user-attachments/assets/c7a23b46-efa5-4fe9-bfd5-e2abc0b280d2" />
+
 
 # Dataset
 **Input data**
