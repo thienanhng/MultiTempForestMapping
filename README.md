@@ -36,9 +36,17 @@ The temporal loss is based on common sense knowledge about forest loss and gain 
 
 Download trained models [here](https://drive.google.com/file/d/1RPdPxcpn2PXkCBMC60G0bONQlx1xgRfA/view?usp=sharing)
 
+# Running the code
+
+You can reproduce the training experiments by running [launch_nontemp_array.py](launch_nontemp_array.py) (pre-training) and [launch_temp_array.py](launch_temp_array.py) (multi-temporal finetuning).
+
+To perform inference with a specific model you have trained or downloaded, run [infer.py](infer.py) after specifying the correct model name and path [line 285](https://github.com/thienanhng/MultiTempForestMapping/blob/bbaf79fbfe07a93fc4d11f55315346ec265c76fe/infer.py#L285).  
+
 # Results
 
-[Download results](https://drive.google.com/drive/folders/1isRYaBt6GJT0NkXpsEWCSQtV8wgbDgEy?usp=sharing)
+All the scripts used to obtain metrics and figure showed in the paper are in the .[analysis/](analysis/) directory.
+
+[Download results (forest cover segmentation maps)](https://drive.google.com/drive/folders/1isRYaBt6GJT0NkXpsEWCSQtV8wgbDgEy?usp=sharing)
 
 [View results with Google Earth Engine](https://temp-forest-mapping.projects.earthengine.app/view/multitempforestmap)
 <img width="1157" height="787" alt="gee_screenshot" src="https://github.com/user-attachments/assets/686c99d1-bda6-4735-bc89-60d0ed89a52c" />
